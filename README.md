@@ -334,12 +334,6 @@ Contributions are welcome.
 
 ---
 
-# 📄 License
-
-Licensed under the MIT License.
-
----
-
 # ⭐ Project Status
 
 **Current Status:** MVP Complete ✅
