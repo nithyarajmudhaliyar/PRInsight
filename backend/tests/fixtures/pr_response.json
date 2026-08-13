@@ -1,0 +1,15 @@
+{
+  "number": 12345,
+  "title": "Fix auth module",
+  "state": "open",
+  "html_url": "https://github.com/facebook/react/pull/12345",
+  "user": {
+    "login": "dev-user"
+  },
+  "base": {
+    "ref": "main"
+  },
+  "head": {
+    "ref": "fix/auth-module"
+  }
+}
