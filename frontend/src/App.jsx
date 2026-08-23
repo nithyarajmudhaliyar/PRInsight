@@ -5,9 +5,11 @@ import ErrorScreen from './components/ErrorScreen';
 import Home from './pages/Home';
 import Results from './pages/Results';
 import { useAnalyze } from './hooks/useAnalyze';
+import { useAuth } from './hooks/useAuth';
 
 export default function App() {
   const { status, result, error, completedSteps, currentStep, analyze, reset, loadingSteps } = useAnalyze();
+  const { user, loading: authLoading, login, logout } = useAuth();
 
   const handleAnalyze = (parsed) => {
     analyze(parsed);
@@ -21,7 +23,7 @@ export default function App() {
 
   return (
     <>
-      <Navbar />
+      <Navbar user={user} onLogin={login} onLogout={logout} />
       <main className="flex-1">
         {status === 'loading' && (
           <LoadingScreen completedSteps={completedSteps} currentStep={currentStep} steps={loadingSteps} />

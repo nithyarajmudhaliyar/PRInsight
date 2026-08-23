@@ -15,6 +15,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.exceptions.auth import (
+    AuthenticationError,
+    OAuthError,
+    OAuthNotConfiguredError,
+)
 from app.exceptions.base import PRInsightError
 from app.exceptions.github import (
     GitHubAPIError,
@@ -67,6 +72,21 @@ async def _handle_github_api_error(request: Request, exc: GitHubAPIError) -> JSO
     return _error_response(502, exc.code, exc.message)
 
 
+async def _handle_auth_error(request: Request, exc: AuthenticationError) -> JSONResponse:
+    logger.warning("Authentication required: %s", exc.message)
+    return _error_response(401, exc.code, exc.message)
+
+
+async def _handle_oauth_error(request: Request, exc: OAuthError) -> JSONResponse:
+    logger.warning("OAuth error: %s", exc.message)
+    return _error_response(400, exc.code, exc.message)
+
+
+async def _handle_oauth_not_configured(request: Request, exc: OAuthNotConfiguredError) -> JSONResponse:
+    logger.error("OAuth not configured.")
+    return _error_response(503, exc.code, exc.message)
+
+
 async def _handle_prinsight_error(request: Request, exc: PRInsightError) -> JSONResponse:
     """Catch-all for any PRInsightError subclass not handled above."""
     logger.error("Application error: %s", exc.message)
@@ -102,6 +122,11 @@ def register_exception_handlers(app: FastAPI) -> None:
     before their parent classes. FastAPI matches handlers by exact type,
     so subclass handlers take priority when registered first.
     """
+    # Authentication exceptions
+    app.add_exception_handler(AuthenticationError, _handle_auth_error)
+    app.add_exception_handler(OAuthError, _handle_oauth_error)
+    app.add_exception_handler(OAuthNotConfiguredError, _handle_oauth_not_configured)
+
     # Specific GitHub exceptions
     app.add_exception_handler(InvalidPRURLError, _handle_invalid_pr_url)
     app.add_exception_handler(GitHubNotFoundError, _handle_github_not_found)

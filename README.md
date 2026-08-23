@@ -206,6 +206,48 @@ http://127.0.0.1:8000/docs
 
 ---
 
+# 🔐 Authentication
+
+PRInsight uses **GitHub OAuth** for user authentication.
+
+- Users sign in with their GitHub account — no passwords are stored by PRInsight.
+- GitHub access tokens are stored server-side only — never exposed to the browser.
+- Authentication is optional — PR analysis works without signing in.
+
+## Setting Up GitHub OAuth (Local Development)
+
+1. Go to GitHub:
+   **Settings → Developer settings → OAuth Apps → New OAuth App**
+
+2. Fill in:
+
+| Field | Value |
+|---|---|
+| Application name | `PRInsight (dev)` |
+| Homepage URL | `http://localhost:5173` |
+| Authorization callback URL | `http://localhost:8000/api/v1/auth/github/callback` |
+
+3. After creating the app, copy the **Client ID** and generate a **Client Secret**.
+
+4. Add them to your `backend/.env` file:
+
+```env
+GITHUB_OAUTH_CLIENT_ID=your_client_id_here
+GITHUB_OAUTH_CLIENT_SECRET=your_client_secret_here
+GITHUB_OAUTH_REDIRECT_URI=http://localhost:8000/api/v1/auth/github/callback
+FRONTEND_URL=http://localhost:5173
+```
+
+> ⚠️ **Never commit `.env` or OAuth secrets to version control.** The `.env` file is already in `.gitignore`.
+
+## OAuth Callback URL
+
+```
+http://localhost:8000/api/v1/auth/github/callback
+```
+
+---
+
 # 📋 Example
 
 ## Input
@@ -258,8 +300,10 @@ zerver/tests/fixtures/markdown_test_cases.json
 - FastAPI
 - Service Layer
 - GitHub Client
+- GitHub OAuth Client
 - Conflict Detection Engine
 - In-Memory Cache
+- Session Management
 - Dependency Injection
 - Structured Exception Handling
 
@@ -295,7 +339,7 @@ zerver/tests/fixtures/markdown_test_cases.json
 - [ ] Line-level conflict detection
 - [ ] Better conflict scoring
 - [ ] Pagination beyond first 100 PRs
-- [ ] GitHub OAuth
+- [x] GitHub OAuth
 
 ---
 

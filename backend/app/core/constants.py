@@ -56,3 +56,16 @@ GITHUB_PR_URL_PATTERN: str = (
 
 APP_NAME: str = "PRInsight"
 APP_VERSION: str = "0.1.0"
+
+# ── GitHub OAuth ─────────────────────────────────────────────────────────────
+
+GITHUB_OAUTH_AUTHORIZE_URL: str = "https://github.com/login/oauth/authorize"
+GITHUB_OAUTH_TOKEN_URL: str = "https://github.com/login/oauth/access_token"
+GITHUB_OAUTH_USER_URL: str = "https://api.github.com/user"
+
+# ── Session ──────────────────────────────────────────────────────────────────
+
+SESSION_COOKIE_NAME: str = "prinsight_session"
+OAUTH_STATE_COOKIE_NAME: str = "prinsight_oauth_state"
+DEFAULT_SESSION_TTL_SECONDS: int = 86400  # 24 hours
+OAUTH_STATE_TTL_SECONDS: int = 600         # 10 minutes

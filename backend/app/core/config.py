@@ -18,6 +18,7 @@ from app.core.constants import (
     APP_VERSION,
     DEFAULT_CACHE_MAX_ENTRIES,
     DEFAULT_CACHE_TTL_SECONDS,
+    DEFAULT_SESSION_TTL_SECONDS,
     GITHUB_API_BASE_URL,
     GITHUB_DEFAULT_TIMEOUT,
     GITHUB_MAX_RETRIES,
@@ -49,6 +50,14 @@ class Settings(BaseSettings):
     GITHUB_API_BASE_URL: str = GITHUB_API_BASE_URL
     GITHUB_API_TIMEOUT: int = GITHUB_DEFAULT_TIMEOUT
     GITHUB_MAX_RETRIES: int = GITHUB_MAX_RETRIES
+
+    # ── GitHub OAuth (optional — required for user sign-in) ────────────────
+    GITHUB_OAUTH_CLIENT_ID: str = ""
+    GITHUB_OAUTH_CLIENT_SECRET: str = ""
+    GITHUB_OAUTH_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/github/callback"
+    FRONTEND_URL: str = "http://localhost:5173"
+    SESSION_SECRET_KEY: str = ""  # Empty = auto-generate for dev
+    SESSION_TTL_SECONDS: int = DEFAULT_SESSION_TTL_SECONDS
 
     # ── CORS ───────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

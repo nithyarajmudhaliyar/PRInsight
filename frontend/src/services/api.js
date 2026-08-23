@@ -4,7 +4,7 @@
  * @module services/api
  */
 
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = 'http://localhost:8000';
 
 /**
  * Analyze a GitHub Pull Request for merge conflicts.
@@ -26,12 +26,13 @@ export async function analyzePR({ owner, repo, prNumber }) {
     response = await fetch(`${API_BASE_URL}/api/v1/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ pr_url }),
     });
   } catch (networkError) {
     // fetch() itself threw — network is down or backend unreachable
     throw new Error(
-      'Unable to reach the PRInsight server. Make sure the backend is running on http://127.0.0.1:8000.'
+      'Unable to reach the PRInsight server. Make sure the backend is running on http://localhost:8000.'
     );
   }
 

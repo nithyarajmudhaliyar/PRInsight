@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.dependencies import get_github_client
+from app.api.dependencies import get_github_client, get_github_oauth_client
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.logging import setup_logging
@@ -41,9 +41,11 @@ async def lifespan(app: FastAPI):
         settings.PORT,
     )
     yield
-    # Shutdown: close the GitHub client's HTTPX connection pool.
+    # Shutdown: close HTTP client connection pools.
     github_client = get_github_client()
     await github_client.close()
+    oauth_client = get_github_oauth_client()
+    await oauth_client.close()
     logger.info("Application shutdown complete.")
 
 
