@@ -10,6 +10,7 @@ ensuring:
 """
 
 import logging
+from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -47,60 +48,70 @@ def _error_response(status_code: int, code: str, message: str, details: object =
     )
 
 
-async def _handle_invalid_pr_url(request: Request, exc: InvalidPRURLError) -> JSONResponse:
-    logger.warning("Invalid PR URL: %s", exc.url)
-    return _error_response(400, exc.code, exc.message)
+async def _handle_invalid_pr_url(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(InvalidPRURLError, exc)
+    logger.warning("Invalid PR URL: %s", err.url)
+    return _error_response(400, err.code, err.message)
 
 
-async def _handle_github_not_found(request: Request, exc: GitHubNotFoundError) -> JSONResponse:
-    logger.warning("GitHub resource not found: %s", exc.message)
-    return _error_response(404, exc.code, exc.message)
+async def _handle_github_not_found(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(GitHubNotFoundError, exc)
+    logger.warning("GitHub resource not found: %s", err.message)
+    return _error_response(404, err.code, err.message)
 
 
-async def _handle_github_rate_limit(request: Request, exc: GitHubRateLimitError) -> JSONResponse:
-    logger.warning("GitHub rate limit exceeded. Resets at: %s", exc.reset_at)
-    return _error_response(429, exc.code, exc.message)
+async def _handle_github_rate_limit(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(GitHubRateLimitError, exc)
+    logger.warning("GitHub rate limit exceeded. Resets at: %s", err.reset_at)
+    return _error_response(429, err.code, err.message)
 
 
-async def _handle_github_auth_error(request: Request, exc: GitHubAuthenticationError) -> JSONResponse:
+async def _handle_github_auth_error(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(GitHubAuthenticationError, exc)
     logger.error("GitHub authentication failed.")
-    return _error_response(401, exc.code, exc.message)
+    return _error_response(401, err.code, err.message)
 
 
-async def _handle_github_api_error(request: Request, exc: GitHubAPIError) -> JSONResponse:
-    logger.error("GitHub API error: %s", exc.message)
-    return _error_response(502, exc.code, exc.message)
+async def _handle_github_api_error(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(GitHubAPIError, exc)
+    logger.error("GitHub API error: %s", err.message)
+    return _error_response(502, err.code, err.message)
 
 
-async def _handle_auth_error(request: Request, exc: AuthenticationError) -> JSONResponse:
-    logger.warning("Authentication required: %s", exc.message)
-    return _error_response(401, exc.code, exc.message)
+async def _handle_auth_error(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(AuthenticationError, exc)
+    logger.warning("Authentication required: %s", err.message)
+    return _error_response(401, err.code, err.message)
 
 
-async def _handle_oauth_error(request: Request, exc: OAuthError) -> JSONResponse:
-    logger.warning("OAuth error: %s", exc.message)
-    return _error_response(400, exc.code, exc.message)
+async def _handle_oauth_error(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(OAuthError, exc)
+    logger.warning("OAuth error: %s", err.message)
+    return _error_response(400, err.code, err.message)
 
 
-async def _handle_oauth_not_configured(request: Request, exc: OAuthNotConfiguredError) -> JSONResponse:
+async def _handle_oauth_not_configured(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(OAuthNotConfiguredError, exc)
     logger.error("OAuth not configured.")
-    return _error_response(503, exc.code, exc.message)
+    return _error_response(503, err.code, err.message)
 
 
-async def _handle_prinsight_error(request: Request, exc: PRInsightError) -> JSONResponse:
+async def _handle_prinsight_error(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all for any PRInsightError subclass not handled above."""
-    logger.error("Application error: %s", exc.message)
-    return _error_response(500, exc.code, exc.message)
+    err = cast(PRInsightError, exc)
+    logger.error("Application error: %s", err.message)
+    return _error_response(500, err.code, err.message)
 
 
-async def _handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def _handle_validation_error(request: Request, exc: Exception) -> JSONResponse:
     """Handle Pydantic request validation failures."""
-    logger.warning("Request validation error: %s", exc.errors())
+    err = cast(RequestValidationError, exc)
+    logger.warning("Request validation error: %s", err.errors())
     return _error_response(
         422,
         "VALIDATION_ERROR",
         "Request validation failed.",
-        details=exc.errors(),
+        details=err.errors(),
     )
 
 
