@@ -9,7 +9,7 @@ POST /auth/logout            → Clear the user's session.
 
 import logging
 
-from fastapi import APIRouter, Cookie, Depends, Request
+from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.api.dependencies import get_auth_service
@@ -88,6 +88,9 @@ async def github_callback(
     if not code:
         raise OAuthError("Missing authorization code from GitHub.")
 
+    if not state:
+        raise OAuthError("Missing state parameter from GitHub.")
+
     # Retrieve the state from the cookie for validation
     cookie_state = request.cookies.get(OAUTH_STATE_COOKIE_NAME)
     if not cookie_state:
@@ -153,6 +156,7 @@ async def get_me(
     description="Clears the user's session and removes the session cookie.",
 )
 async def logout(
+    response: Response,
     service: AuthService = Depends(get_auth_service),
     prinsight_session: str | None = Cookie(default=None),
 ) -> LogoutResponse:
@@ -163,8 +167,5 @@ async def logout(
     """
     service.logout(prinsight_session)
 
-    response_data = LogoutResponse()
-    from fastapi.responses import JSONResponse
-    response = JSONResponse(content=response_data.model_dump())
     response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
-    return response
+    return LogoutResponse()

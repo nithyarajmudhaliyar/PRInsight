@@ -336,7 +336,7 @@ zerver/tests/fixtures/markdown_test_cases.json
 
 ## 🚧 Phase 3 — Improve Detection
 
-- [ ] Line-level conflict detection
+- [x] Line-level conflict detection
 - [ ] Better conflict scoring
 - [ ] Pagination beyond first 100 PRs
 - [x] GitHub OAuth

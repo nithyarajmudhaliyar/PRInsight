@@ -32,6 +32,22 @@ class PullRequestInfo(BaseModel):
     changed_files: list[str]
 
 
+class LineRangeInfo(BaseModel):
+    """A contiguous range of lines (inclusive on both ends)."""
+
+    start: int
+    end: int
+
+
+class FileOverlap(BaseModel):
+    """Line-level overlap detail for a single file shared by two PRs."""
+
+    file_path: str
+    has_line_overlap: bool | None = None
+    target_lines: list[LineRangeInfo] = []
+    other_lines: list[LineRangeInfo] = []
+
+
 class ConflictDetail(BaseModel):
     """A single conflicting Pull Request and its overlapping files."""
 
@@ -42,6 +58,7 @@ class ConflictDetail(BaseModel):
     overlapping_files: list[str]
     overlap_count: int
     risk_level: RiskLevel
+    file_details: list[FileOverlap] | None = None
 
 
 class AnalysisResult(BaseModel):

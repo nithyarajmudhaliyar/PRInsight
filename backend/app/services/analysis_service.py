@@ -28,10 +28,12 @@ from app.schemas.responses import (
     AnalysisResult,
     AnalyzeResponse,
     ConflictDetail,
+    FileOverlap,
+    LineRangeInfo,
     PullRequestInfo,
     RepositoryInfo,
 )
-from app.services.conflict_engine import detect_conflicts
+from app.services.conflict_engine import detect_conflicts_with_lines
 from app.utils.url_parser import normalize_pr_url, parse_pr_url
 
 logger = logging.getLogger(__name__)
@@ -98,6 +100,9 @@ class AnalysisService:
             components.owner, components.repo, components.number
         )
         target_file_paths = {f["filename"] for f in target_files_data}
+        target_patches: dict[str, str | None] = {
+            f["filename"]: f.get("patch") for f in target_files_data
+        }
 
         # ── Step 4: Fetch open PRs ───────────────────────────────────────
         open_prs = await self._github.get_open_pull_requests(
@@ -129,14 +134,25 @@ class AnalysisService:
                     "author": pr.get("user", {}).get("login", "unknown"),
                     "url": pr.get("html_url", ""),
                     "files": {f["filename"] for f in files},
+                    "patches": {
+                        f["filename"]: f.get("patch") for f in files
+                    },
                 }
 
         other_prs_data = await asyncio.gather(
             *[fetch_pr_files(pr) for pr in open_prs]
         )
 
-        # ── Step 6: Detect conflicts ─────────────────────────────────────
-        conflict_results = detect_conflicts(target_file_paths, list(other_prs_data))
+        # ── Step 6: Detect conflicts (with line-level analysis) ────────
+        other_patches: dict[int, dict[str, str | None]] = {
+            pr_d["number"]: pr_d["patches"] for pr_d in other_prs_data
+        }
+        conflict_results = detect_conflicts_with_lines(
+            target_file_paths,
+            list(other_prs_data),
+            target_patches,
+            other_patches,
+        )
 
         logger.info(
             "Conflict detection complete: %d conflicts found",
@@ -184,6 +200,21 @@ class AnalysisService:
                             overlapping_files=c.overlapping_files,
                             overlap_count=c.overlap_count,
                             risk_level=c.risk_level,
+                            file_details=[
+                                FileOverlap(
+                                    file_path=fd.file_path,
+                                    has_line_overlap=fd.has_line_overlap,
+                                    target_lines=[
+                                        LineRangeInfo(start=r.start, end=r.end)
+                                        for r in fd.target_lines
+                                    ],
+                                    other_lines=[
+                                        LineRangeInfo(start=r.start, end=r.end)
+                                        for r in fd.other_lines
+                                    ],
+                                )
+                                for fd in c.file_details
+                            ] if c.file_details else None,
                         )
                         for c in conflict_results
                     ],
