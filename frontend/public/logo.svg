@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Magnifying glass body -->
+  <circle cx="52" cy="52" r="36" stroke="#0B1628" stroke-width="8" fill="#0F1D32"/>
+  <circle cx="52" cy="52" r="36" stroke="#1A2E4A" stroke-width="3" fill="none"/>
+
+  <!-- Glass handle -->
+  <line x1="78" y1="78" x2="105" y2="105" stroke="#0B1628" stroke-width="12" stroke-linecap="round"/>
+  <line x1="78" y1="78" x2="105" y2="105" stroke="#1A2E4A" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Circuit nodes (left side) -->
+  <!-- Top node -->
+  <line x1="2" y1="32" x2="20" y2="32" stroke="#1A2E4A" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="2" cy="32" r="4" fill="#1A2E4A"/>
+  <!-- Middle node -->
+  <line x1="2" y1="52" x2="18" y2="52" stroke="#1A2E4A" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="2" cy="52" r="4" fill="#1A2E4A"/>
+  <!-- Bottom node -->
+  <line x1="2" y1="72" x2="20" y2="72" stroke="#1A2E4A" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="2" cy="72" r="4" fill="#1A2E4A"/>
+
+  <!-- Inner merge/PR arrow icon -->
+  <!-- Red arrow (top) -->
+  <path d="M38 40 L52 52" stroke="#E53935" stroke-width="4" stroke-linecap="round"/>
+  <path d="M38 40 L42 46" stroke="#E53935" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- White center line -->
+  <path d="M52 52 L66 52" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Blue/teal arrow (bottom-right) -->
+  <path d="M52 52 L66 40" stroke="#1E88E5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M52 52 L66 64" stroke="#26A69A" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Arrow head -->
+  <path d="M62 36 L66 40 L62 44" stroke="#1E88E5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

@@ -21,6 +21,18 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Show a minimal loading state while checking auth session
+  if (authLoading) {
+    return (
+      <>
+        <Navbar user={null} onLogin={login} onLogout={logout} />
+        <main className="flex-1 flex items-center justify-center min-h-screen">
+          <div className="h-8 w-8 rounded-full border-[3px] border-transparent border-t-[var(--color-blue)] animate-spin-slow" />
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar user={user} onLogin={login} onLogout={logout} />
