@@ -45,7 +45,7 @@ class GitHubAuthenticationError(GitHubError):
 
     def __init__(self) -> None:
         super().__init__(
-            message="GitHub authentication failed. Please check your GITHUB_TOKEN.",
+            message="GitHub authentication failed. The server's GitHub credentials are invalid or expired.",
             code="GITHUB_AUTH_ERROR",
         )
 
