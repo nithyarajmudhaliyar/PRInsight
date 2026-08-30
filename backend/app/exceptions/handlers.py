@@ -28,6 +28,7 @@ from app.exceptions.github import (
     GitHubNotFoundError,
     GitHubRateLimitError,
 )
+from app.exceptions.rate_limit import RateLimitExceededError
 from app.exceptions.validation import InvalidPRURLError
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,15 @@ async def _handle_prinsight_error(request: Request, exc: Exception) -> JSONRespo
     return _error_response(500, err.code, err.message)
 
 
+async def _handle_rate_limit_exceeded(request: Request, exc: Exception) -> JSONResponse:
+    """Handle rate limit exceeded errors with a Retry-After header."""
+    err = cast(RateLimitExceededError, exc)
+    logger.warning("Rate limit exceeded for %s %s", request.method, request.url.path)
+    response = _error_response(429, err.code, err.message)
+    response.headers["Retry-After"] = str(err.retry_after)
+    return response
+
+
 async def _handle_validation_error(request: Request, exc: Exception) -> JSONResponse:
     """Handle Pydantic request validation failures."""
     err = cast(RequestValidationError, exc)
@@ -147,6 +157,9 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     # Generic PRInsight errors (catch-all for typed exceptions)
     app.add_exception_handler(PRInsightError, _handle_prinsight_error)
+
+    # Rate limiting
+    app.add_exception_handler(RateLimitExceededError, _handle_rate_limit_exceeded)
 
     # Pydantic validation errors
     app.add_exception_handler(RequestValidationError, _handle_validation_error)

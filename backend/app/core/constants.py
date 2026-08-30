@@ -69,3 +69,10 @@ SESSION_COOKIE_NAME: str = "prinsight_session"
 OAUTH_STATE_COOKIE_NAME: str = "prinsight_oauth_state"
 DEFAULT_SESSION_TTL_SECONDS: int = 86400  # 24 hours
 OAUTH_STATE_TTL_SECONDS: int = 600         # 10 minutes
+
+# ── Rate Limiting ────────────────────────────────────────────────────────────
+
+DEFAULT_RATE_LIMIT_ANON_MAX: int = 10       # Requests per window (anonymous)
+DEFAULT_RATE_LIMIT_ANON_WINDOW: int = 60    # Window in seconds (1 minute)
+DEFAULT_RATE_LIMIT_AUTH_MAX: int = 30       # Requests per window (authenticated)
+DEFAULT_RATE_LIMIT_AUTH_WINDOW: int = 60    # Window in seconds (1 minute)

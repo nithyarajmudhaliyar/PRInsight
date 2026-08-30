@@ -8,7 +8,7 @@ to the AnalysisService.
 
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_analysis_service
+from app.api.dependencies import check_rate_limit, get_analysis_service
 from app.schemas.requests import AnalyzeRequest
 from app.schemas.responses import AnalyzeResponse
 from app.services.analysis_service import AnalysisService
@@ -28,19 +28,21 @@ router = APIRouter(tags=["Analysis"])
         400: {"description": "Invalid PR URL format"},
         404: {"description": "PR or repository not found on GitHub"},
         422: {"description": "Request validation failed"},
-        429: {"description": "GitHub API rate limit exceeded"},
+        429: {"description": "Rate limit exceeded"},
         502: {"description": "GitHub API returned an unexpected error"},
     },
 )
 async def analyze_pr(
     request: AnalyzeRequest,
+    _rate_limit: None = Depends(check_rate_limit),
     service: AnalysisService = Depends(get_analysis_service),
 ) -> AnalyzeResponse:
     """
     Analyze a Pull Request for file-level conflicts.
 
-    The handler validates the request body (via Pydantic), injects the
-    AnalysisService (via Depends), and returns the analysis result.
+    The handler validates the request body (via Pydantic), enforces
+    rate limits (via check_rate_limit), injects the AnalysisService
+    (via Depends), and returns the analysis result.
     All business logic lives in the service layer.
     """
     return await service.analyze(request.pr_url)

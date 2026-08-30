@@ -18,6 +18,10 @@ from app.core.constants import (
     APP_VERSION,
     DEFAULT_CACHE_MAX_ENTRIES,
     DEFAULT_CACHE_TTL_SECONDS,
+    DEFAULT_RATE_LIMIT_ANON_MAX,
+    DEFAULT_RATE_LIMIT_ANON_WINDOW,
+    DEFAULT_RATE_LIMIT_AUTH_MAX,
+    DEFAULT_RATE_LIMIT_AUTH_WINDOW,
     DEFAULT_SESSION_TTL_SECONDS,
     GITHUB_API_BASE_URL,
     GITHUB_DEFAULT_TIMEOUT,
@@ -71,6 +75,12 @@ class Settings(BaseSettings):
 
     # ── Pagination ─────────────────────────────────────────────────────────
     MAX_PRS_TO_ANALYZE: int = MAX_PRS_TO_ANALYZE
+
+    # ── Rate Limiting ──────────────────────────────────────────────────────
+    RATE_LIMIT_ANON_MAX: int = DEFAULT_RATE_LIMIT_ANON_MAX
+    RATE_LIMIT_ANON_WINDOW: int = DEFAULT_RATE_LIMIT_ANON_WINDOW
+    RATE_LIMIT_AUTH_MAX: int = DEFAULT_RATE_LIMIT_AUTH_MAX
+    RATE_LIMIT_AUTH_WINDOW: int = DEFAULT_RATE_LIMIT_AUTH_WINDOW
 
     model_config = SettingsConfigDict(
         env_file=".env",
