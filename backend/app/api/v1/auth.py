@@ -13,6 +13,7 @@ from fastapi import APIRouter, Cookie, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.api.dependencies import get_auth_service
+from app.core.config import get_settings
 from app.core.constants import OAUTH_STATE_COOKIE_NAME, SESSION_COOKIE_NAME
 from app.exceptions.auth import OAuthError
 from app.schemas.auth import AuthUser, AuthUserResponse, LogoutResponse
@@ -41,6 +42,7 @@ async def github_login(
     Sets the OAuth state parameter in an HTTP-only cookie for CSRF validation
     when the callback is received.
     """
+    settings = get_settings()
     authorization_url, state = service.create_login_url()
 
     response = RedirectResponse(url=authorization_url, status_code=307)
@@ -50,7 +52,7 @@ async def github_login(
         max_age=600,  # 10 minutes
         httponly=True,
         samesite="lax",
-        secure=False,  # False for localhost; True in production
+        secure=settings.COOKIE_SECURE,
         path="/",
     )
     return response
@@ -103,7 +105,6 @@ async def github_callback(
     session_id = await service.handle_callback(code=code, state=state)
 
     # Build the redirect URL back to the frontend
-    from app.core.config import get_settings
     settings = get_settings()
     redirect_url = settings.FRONTEND_URL
 
@@ -116,7 +117,7 @@ async def github_callback(
         max_age=settings.SESSION_TTL_SECONDS,
         httponly=True,
         samesite="lax",
-        secure=False,  # False for localhost; True in production
+        secure=settings.COOKIE_SECURE,
         path="/",
     )
 

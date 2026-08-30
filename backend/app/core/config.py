@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     SESSION_SECRET_KEY: str = ""  # Empty = auto-generate for dev
     SESSION_TTL_SECONDS: int = DEFAULT_SESSION_TTL_SECONDS
+    COOKIE_SECURE: bool = False  # True in production (requires HTTPS)
 
     # ── CORS ───────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

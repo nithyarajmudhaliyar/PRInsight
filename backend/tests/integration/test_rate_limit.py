@@ -2,15 +2,18 @@
 Integration tests for rate limiting on the /analyze endpoint.
 
 Tests verify that:
-    - Requests within the limit succeed (not blocked).
-    - Requests exceeding the limit get HTTP 429 with proper error format.
+    - Anonymous requests within the limit succeed (not blocked).
+    - Anonymous requests exceeding the limit get HTTP 429 with proper error format.
     - The Retry-After header is present on 429 responses.
+    - Authenticated users have a separate, higher rate limit bucket.
+    - Cached results still go through rate limiting checks.
 """
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.api import dependencies as deps
+from app.core.constants import SESSION_COOKIE_NAME
 from app.middleware.rate_limiter import RateLimiter
 
 
@@ -97,3 +100,94 @@ class TestAnonymousRateLimit:
         )
         assert "retry-after" in response.headers
         assert int(response.headers["retry-after"]) > 0
+
+
+class TestAuthenticatedRateLimit:
+    """Rate limiting for authenticated users (separate per-user bucket)."""
+
+    def _create_session(self) -> str:
+        """Create a fake session in the AuthService and return the session ID."""
+        import secrets
+        import time
+
+        auth_service = deps.get_auth_service()
+        session_id = secrets.token_urlsafe(32)
+        auth_service._sessions[session_id] = {
+            "user": {
+                "id": 12345,
+                "login": "testuser",
+                "name": "Test User",
+                "avatar_url": "https://example.com/avatar.png",
+            },
+            "access_token": "gho_fake_token",
+            "created_at": time.time(),
+            "expires_at": time.time() + 86400,
+        }
+        return session_id
+
+    def test_authenticated_user_has_separate_limit(self, low_limit_client: TestClient):
+        """
+        An authenticated user should have a separate bucket from anonymous users.
+        After exhausting the anonymous limit, an authenticated request should still succeed.
+        """
+        # Exhaust the anonymous limit (2 requests)
+        for _ in range(2):
+            low_limit_client.post(
+                "/api/v1/analyze",
+                json={"pr_url": "https://github.com/owner/repo/pull/1"},
+            )
+
+        # Anonymous user is now rate-limited
+        response = low_limit_client.post(
+            "/api/v1/analyze",
+            json={"pr_url": "https://github.com/owner/repo/pull/1"},
+        )
+        assert response.status_code == 429
+
+        # Authenticated user should NOT be rate-limited (separate bucket)
+        session_id = self._create_session()
+        low_limit_client.cookies.set(SESSION_COOKIE_NAME, session_id)
+        response = low_limit_client.post(
+            "/api/v1/analyze",
+            json={"pr_url": "https://github.com/owner/repo/pull/1"},
+        )
+        assert response.status_code != 429
+        low_limit_client.cookies.clear()
+
+    def test_authenticated_user_can_be_rate_limited(self, low_limit_client: TestClient):
+        """Authenticated users can also be rate-limited after exceeding their limit."""
+        session_id = self._create_session()
+        low_limit_client.cookies.set(SESSION_COOKIE_NAME, session_id)
+
+        # Exhaust the authenticated limit (2 requests)
+        for _ in range(2):
+            low_limit_client.post(
+                "/api/v1/analyze",
+                json={"pr_url": "https://github.com/owner/repo/pull/1"},
+            )
+
+        # This one should be rate-limited
+        response = low_limit_client.post(
+            "/api/v1/analyze",
+            json={"pr_url": "https://github.com/owner/repo/pull/1"},
+        )
+        assert response.status_code == 429
+        low_limit_client.cookies.clear()
+
+    def test_expired_session_falls_back_to_anonymous(self, low_limit_client: TestClient):
+        """A request with an invalid/expired session should be rate-limited as anonymous."""
+        low_limit_client.cookies.set(SESSION_COOKIE_NAME, "invalid_session_id")
+
+        # Exhaust the anonymous limit
+        for _ in range(2):
+            low_limit_client.post(
+                "/api/v1/analyze",
+                json={"pr_url": "https://github.com/owner/repo/pull/1"},
+            )
+
+        response = low_limit_client.post(
+            "/api/v1/analyze",
+            json={"pr_url": "https://github.com/owner/repo/pull/1"},
+        )
+        assert response.status_code == 429
+        low_limit_client.cookies.clear()
