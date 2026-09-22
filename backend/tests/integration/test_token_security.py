@@ -8,6 +8,7 @@ returned in API responses, error messages, or health check output.
 import pytest
 from unittest.mock import AsyncMock
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_analysis_service
@@ -21,6 +22,13 @@ from app.exceptions.github import (
 
 class TestGitHubTokenNotLeaked:
     """Verify that GITHUB_TOKEN value never appears in API responses."""
+
+    @staticmethod
+    def _get_app(test_client: TestClient) -> FastAPI:
+        """Return the underlying FastAPI app with proper typing."""
+        app = test_client.app
+        assert isinstance(app, FastAPI)
+        return app
 
     def _assert_no_token_in_response(self, response):
         """Check that no GitHub token pattern appears in the response body."""
@@ -67,7 +75,7 @@ class TestGitHubTokenNotLeaked:
 
         mock_service = AsyncMock()
         mock_service.analyze.return_value = mock_response
-        test_client.app.dependency_overrides[get_analysis_service] = lambda: mock_service
+        self._get_app(test_client).dependency_overrides[get_analysis_service] = lambda: mock_service
 
         try:
             response = test_client.post(
@@ -77,13 +85,13 @@ class TestGitHubTokenNotLeaked:
             assert response.status_code == 200
             self._assert_no_token_in_response(response)
         finally:
-            test_client.app.dependency_overrides.clear()
+            self._get_app(test_client).dependency_overrides.clear()
 
     def test_auth_error_does_not_leak_token(self, test_client: TestClient):
         """A 401 GitHub auth error should not reveal the token or its env var name."""
         mock_service = AsyncMock()
         mock_service.analyze.side_effect = GitHubAuthenticationError()
-        test_client.app.dependency_overrides[get_analysis_service] = lambda: mock_service
+        self._get_app(test_client).dependency_overrides[get_analysis_service] = lambda: mock_service
 
         try:
             response = test_client.post(
@@ -93,13 +101,13 @@ class TestGitHubTokenNotLeaked:
             assert response.status_code == 401
             self._assert_no_token_in_response(response)
         finally:
-            test_client.app.dependency_overrides.clear()
+            self._get_app(test_client).dependency_overrides.clear()
 
     def test_not_found_error_does_not_leak_token(self, test_client: TestClient):
         """A 404 error should not reveal the token."""
         mock_service = AsyncMock()
         mock_service.analyze.side_effect = GitHubNotFoundError("PR")
-        test_client.app.dependency_overrides[get_analysis_service] = lambda: mock_service
+        self._get_app(test_client).dependency_overrides[get_analysis_service] = lambda: mock_service
 
         try:
             response = test_client.post(
@@ -109,13 +117,13 @@ class TestGitHubTokenNotLeaked:
             assert response.status_code == 404
             self._assert_no_token_in_response(response)
         finally:
-            test_client.app.dependency_overrides.clear()
+            self._get_app(test_client).dependency_overrides.clear()
 
     def test_rate_limit_error_does_not_leak_token(self, test_client: TestClient):
         """A 429 GitHub rate limit error should not reveal the token."""
         mock_service = AsyncMock()
         mock_service.analyze.side_effect = GitHubRateLimitError()
-        test_client.app.dependency_overrides[get_analysis_service] = lambda: mock_service
+        self._get_app(test_client).dependency_overrides[get_analysis_service] = lambda: mock_service
 
         try:
             response = test_client.post(
@@ -125,13 +133,13 @@ class TestGitHubTokenNotLeaked:
             assert response.status_code == 429
             self._assert_no_token_in_response(response)
         finally:
-            test_client.app.dependency_overrides.clear()
+            self._get_app(test_client).dependency_overrides.clear()
 
     def test_server_error_does_not_leak_token(self, test_client: TestClient):
         """A 502 GitHub API error should not reveal the token."""
         mock_service = AsyncMock()
         mock_service.analyze.side_effect = GitHubAPIError(status_code=500, detail="Internal")
-        test_client.app.dependency_overrides[get_analysis_service] = lambda: mock_service
+        self._get_app(test_client).dependency_overrides[get_analysis_service] = lambda: mock_service
 
         try:
             response = test_client.post(
@@ -141,13 +149,13 @@ class TestGitHubTokenNotLeaked:
             assert response.status_code == 502
             self._assert_no_token_in_response(response)
         finally:
-            test_client.app.dependency_overrides.clear()
+            self._get_app(test_client).dependency_overrides.clear()
 
     def test_unhandled_error_does_not_leak_token(self, test_client: TestClient):
         """An unhandled exception should return a generic message without the token."""
         mock_service = AsyncMock()
         mock_service.analyze.side_effect = RuntimeError("Something unexpected")
-        test_client.app.dependency_overrides[get_analysis_service] = lambda: mock_service
+        self._get_app(test_client).dependency_overrides[get_analysis_service] = lambda: mock_service
 
         try:
             # Use raise_server_exceptions=False so the 500 response
@@ -160,7 +168,7 @@ class TestGitHubTokenNotLeaked:
                 assert response.status_code == 500
                 self._assert_no_token_in_response(response)
         finally:
-            test_client.app.dependency_overrides.clear()
+            self._get_app(test_client).dependency_overrides.clear()
 
     def test_validation_error_does_not_leak_token(self, test_client: TestClient):
         """A 422 validation error should not reveal the token."""
