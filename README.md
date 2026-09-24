@@ -248,6 +248,30 @@ http://localhost:8000/api/v1/auth/github/callback
 
 ---
 
+# 🚀 Deployment (Vercel)
+
+PRInsight is ready to be deployed on Vercel as two separate projects (Frontend and Backend) with zero code changes. 
+
+1. **Frontend Project:**
+   - Framework Preset: `Vite`
+   - Root Directory: `frontend`
+   - Environment Variables:
+     - `VITE_API_BASE_URL` = `https://<your-backend-url>.vercel.app`
+
+2. **Backend Project:**
+   - Framework Preset: `Other`
+   - Root Directory: `backend`
+   - Environment Variables:
+     - `GITHUB_TOKEN` = `ghp_...`
+     - `CORS_ORIGINS` = `["https://<your-frontend-url>.vercel.app"]`
+     - `COOKIE_SAMESITE` = `none`
+     - `COOKIE_SECURE` = `true`
+     - *(Optional) OAuth Variables:* `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `FRONTEND_URL`, `GITHUB_OAUTH_REDIRECT_URI`
+
+> **Note on Serverless:** The backend uses an in-memory cache and rate limiter which reset across Vercel cold starts. This is expected and acceptable for portfolio/demo deployments.
+
+---
+
 # 📋 Example
 
 ## Input
@@ -334,12 +358,11 @@ zerver/tests/fixtures/markdown_test_cases.json
 
 ---
 
-## 🚧 Phase 3 — Improve Detection
+## ✅ Phase 3 — Production Ready
 
 - [x] Line-level conflict detection
-- [ ] Better conflict scoring
-- [ ] Pagination beyond first 100 PRs
 - [x] GitHub OAuth
+- [x] Vercel Serverless Deployment configuration (Frontend + Backend)
 
 ---
 
