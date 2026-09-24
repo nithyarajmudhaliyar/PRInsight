@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     SESSION_SECRET_KEY: str = ""  # Empty = auto-generate for dev
     SESSION_TTL_SECONDS: int = DEFAULT_SESSION_TTL_SECONDS
     COOKIE_SECURE: bool = False  # True in production (requires HTTPS)
+    COOKIE_SAMESITE: str = "lax"  # Set to "none" for cross-origin deployment
 
     # ── CORS ───────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]

@@ -51,7 +51,7 @@ async def github_login(
         value=state,
         max_age=600,  # 10 minutes
         httponly=True,
-        samesite="lax",
+        samesite=settings.COOKIE_SAMESITE,
         secure=settings.COOKIE_SECURE,
         path="/",
     )
@@ -116,7 +116,7 @@ async def github_callback(
         value=session_id,
         max_age=settings.SESSION_TTL_SECONDS,
         httponly=True,
-        samesite="lax",
+        samesite=settings.COOKIE_SAMESITE,
         secure=settings.COOKIE_SECURE,
         path="/",
     )

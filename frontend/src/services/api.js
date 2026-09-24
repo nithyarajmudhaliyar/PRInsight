@@ -32,7 +32,7 @@ export async function analyzePR({ owner, repo, prNumber }) {
   } catch (networkError) {
     // fetch() itself threw — network is down or backend unreachable
     throw new Error(
-      'Unable to reach the PRInsight server. Make sure the backend is running on http://localhost:8000.',
+      'Unable to reach the PRInsight server. Please try again later.',
       { cause: networkError }
     );
   }
