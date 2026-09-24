@@ -13,12 +13,17 @@ Instead of discovering conflicts during the merge process, PRInsight helps devel
 - 🔍 Analyze any public GitHub Pull Request using its URL
 - ⚠️ Detect overlapping Pull Requests in the same repository
 - 📂 Identify conflicting files between Pull Requests
+- 🔬 Line-level conflict detection
 - 📊 Automatic conflict risk classification (High / Medium / Low)
 - 📋 Detailed conflict report with overlapping files
+- 🔐 GitHub OAuth for user authentication
 - ⚡ In-memory caching for faster repeated analyses
+- 🚦 Rate limiting for API protection
+- 🔄 Automatic GitHub API retry and rate-limit handling
 - 🚀 FastAPI backend with GitHub REST API integration
 - 🎨 Modern React + Tailwind CSS interface
 - 📚 Interactive API documentation with Swagger
+- 🧪 Comprehensive automated testing
 
 ---
 
@@ -118,6 +123,8 @@ PRInsight/
 │       └── mock/
 │
 ├── backend/
+│   ├── api/
+│   │   └── index.py
 │   ├── app/
 │   │   ├── api/
 │   │   ├── cache/
@@ -129,7 +136,9 @@ PRInsight/
 │   │   ├── utils/
 │   │   └── main.py
 │   ├── tests/
-│   └── requirements.txt
+│   ├── requirements.txt
+│   ├── vercel.json
+│   └── .python-version
 │
 └── README.md
 ```
@@ -211,7 +220,7 @@ http://127.0.0.1:8000/docs
 PRInsight uses **GitHub OAuth** for user authentication.
 
 - Users sign in with their GitHub account — no passwords are stored by PRInsight.
-- GitHub access tokens are stored server-side only — never exposed to the browser.
+- User GitHub access tokens and the backend's system `GITHUB_TOKEN` are stored server-side only — never exposed to the browser.
 - Authentication is optional — PR analysis works without signing in.
 
 ## Setting Up GitHub OAuth (Local Development)
@@ -227,7 +236,7 @@ PRInsight uses **GitHub OAuth** for user authentication.
 | Homepage URL | `http://localhost:5173` |
 | Authorization callback URL | `http://localhost:8000/api/v1/auth/github/callback` |
 
-3. After creating the app, copy the **Client ID** and generate a **Client Secret**.
+3. After creating the GitHub OAuth App, copy the **Client ID** and generate a **Client Secret**.
 
 4. Add them to your `backend/.env` file:
 
@@ -250,7 +259,7 @@ http://localhost:8000/api/v1/auth/github/callback
 
 # 🚀 Deployment (Vercel)
 
-PRInsight is ready to be deployed on Vercel as two separate projects (Frontend and Backend) with zero code changes. 
+PRInsight is ready to be deployed on Vercel as two separate projects (Frontend and Backend) with the included deployment configuration. 
 
 1. **Frontend Project:**
    - Framework Preset: `Vite`
@@ -293,7 +302,7 @@ Potential Conflicts:
 4
 
 Risk:
-Medium
+High
 
 Conflicting Pull Requests
 
@@ -358,7 +367,7 @@ zerver/tests/fixtures/markdown_test_cases.json
 
 ---
 
-## ✅ Phase 3 — Production Ready
+## ✅ Phase 3 — Deployment & Hardening
 
 - [x] Line-level conflict detection
 - [x] GitHub OAuth
@@ -403,7 +412,7 @@ Contributions are welcome.
 
 # ⭐ Project Status
 
-**Current Status:** MVP Complete ✅
+**Current Status:** MVP Complete & Deployment Ready ✅
 
 - Frontend connected to backend
 - Live GitHub API integration
