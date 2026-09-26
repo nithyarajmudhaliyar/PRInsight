@@ -6,6 +6,8 @@ PRInsight is an open-source developer tool that analyzes a GitHub Pull Request a
 
 Instead of discovering conflicts during the merge process, PRInsight helps developers identify overlapping changes early, making collaboration faster and safer.
 
+🌐 **Live Demo:** https://pr-insight-phi.vercel.app/
+
 ---
 
 ## ✨ Features
@@ -123,8 +125,6 @@ PRInsight/
 │       └── mock/
 │
 ├── backend/
-│   ├── api/
-│   │   └── index.py
 │   ├── app/
 │   │   ├── api/
 │   │   ├── cache/
@@ -137,9 +137,11 @@ PRInsight/
 │   │   └── main.py
 │   ├── tests/
 │   ├── requirements.txt
-│   ├── vercel.json
+│   ├── pyproject.toml
+│   ├── .env.example
 │   └── .python-version
 │
+├── vercel.json
 └── README.md
 ```
 
@@ -249,7 +251,7 @@ FRONTEND_URL=http://localhost:5173
 
 > ⚠️ **Never commit `.env` or OAuth secrets to version control.** The `.env` file is already in `.gitignore`.
 
-## OAuth Callback URL
+## Local OAuth Callback URL
 
 ```
 http://localhost:8000/api/v1/auth/github/callback
@@ -259,23 +261,49 @@ http://localhost:8000/api/v1/auth/github/callback
 
 # 🚀 Deployment (Vercel)
 
-PRInsight is deployed as a single Vercel project using **Vercel Services**, with the React frontend and FastAPI backend running under the same domain.
+PRInsight is deployed as a **single Vercel project** using **Vercel Services**, with the React frontend and FastAPI backend running under the same domain.
 
-### Production
+🌐 **Production:** https://pr-insight-phi.vercel.app/
 
-🌐 **Live Demo:**  
-https://pr-insight-phi.vercel.app/
-
-### Architecture
+### Routing
 
 ```text
 https://pr-insight-phi.vercel.app
             │
             ├── /            → React frontend
-            ├── /api/*      → FastAPI backend
-            ├── /docs       → Swagger API docs
-            └── /redoc      → ReDoc
+            ├── /api/*       → FastAPI backend
+            ├── /docs        → Swagger API docs
+            ├── /openapi.json → OpenAPI spec
+            └── /redoc       → ReDoc API docs
 ```
+
+### Environment Variables (Vercel Dashboard)
+
+**Backend (secrets — never commit to Git):**
+
+| Variable | Value |
+|---|---|
+| `GITHUB_TOKEN` | Your GitHub Personal Access Token |
+| `GITHUB_OAUTH_CLIENT_ID` | From GitHub OAuth App |
+| `GITHUB_OAUTH_CLIENT_SECRET` | From GitHub OAuth App |
+| `SESSION_SECRET_KEY` | Random secret for session signing |
+| `COOKIE_SECURE` | `true` |
+| `COOKIE_SAMESITE` | `lax` |
+| `CORS_ORIGINS` | `["https://pr-insight-phi.vercel.app"]` |
+| `FRONTEND_URL` | `https://pr-insight-phi.vercel.app` |
+| `GITHUB_OAUTH_REDIRECT_URI` | `https://pr-insight-phi.vercel.app/api/v1/auth/github/callback` |
+
+**Frontend:**
+
+| Variable | Value |
+|---|---|
+| `VITE_API_BASE_URL` | `""` (empty string — uses same-domain relative paths) |
+
+> ⚠️ **Never commit secrets (`GITHUB_TOKEN`, `GITHUB_OAUTH_CLIENT_SECRET`, `SESSION_SECRET_KEY`) to Git.** All secrets are configured exclusively through the Vercel Dashboard.
+
+### Serverless Considerations
+
+The backend uses in-memory cache, rate limiting, and session storage. These are acceptable for this portfolio/demo deployment but may reset across serverless instance lifecycles. Production-scale usage would require external stores (e.g., Redis).
 ---
 
 # 📋 Example
@@ -337,6 +365,12 @@ zerver/tests/fixtures/markdown_test_cases.json
 - Dependency Injection
 - Structured Exception Handling
 
+### Deployment
+
+- Vercel Services (single project)
+- React + FastAPI under one domain
+- Same-domain API routing (`/api/*` → backend)
+
 ---
 
 # 🗺 Roadmap
@@ -368,7 +402,9 @@ zerver/tests/fixtures/markdown_test_cases.json
 
 - [x] Line-level conflict detection
 - [x] GitHub OAuth
-- [x] Vercel Serverless Deployment configuration (Frontend + Backend)
+- [x] Vercel deployment
+- [x] Single-project Vercel Services setup
+- [x] Same-domain frontend + backend routing
 
 ---
 
@@ -409,13 +445,14 @@ Contributions are welcome.
 
 # ⭐ Project Status
 
-**Current Status:** MVP Complete & Deployment Ready ✅
+**Current Status:** MVP Complete & Live ✅
 
 - Frontend connected to backend
 - Live GitHub API integration
 - File-level conflict detection
 - Working end-to-end analysis
-- Active development toward Version 2
+- Live production deployment
+- Future improvements planned for Version 2
 
 ---
 
