@@ -399,14 +399,17 @@ zerver/tests/fixtures/markdown_test_cases.json
 
 # 🧪 Testing
 
-Backend includes comprehensive automated tests.
+PRInsight includes automated backend tests covering core business logic, API endpoints, authentication, caching, rate limiting, and error handling.
 
-Run all tests
+All backend tests are written using **pytest**.
+
+## Run Tests
+
+From the `backend/` directory:
 
 ```bash
 pytest
 ```
-
 ---
 
 # 🤝 Contributing
