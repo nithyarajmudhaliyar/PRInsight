@@ -397,17 +397,6 @@ zerver/tests/fixtures/markdown_test_cases.json
 
 ---
 
-## 🔮 Future
-
-- GitHub App
-- Organization dashboard
-- Historical conflict analytics
-- AI-generated conflict explanations
-- Semantic conflict detection
-- GitHub Enterprise support
-
----
-
 # 🧪 Testing
 
 Backend includes comprehensive automated tests.
