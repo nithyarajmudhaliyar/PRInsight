@@ -259,26 +259,23 @@ http://localhost:8000/api/v1/auth/github/callback
 
 # 🚀 Deployment (Vercel)
 
-PRInsight is ready to be deployed on Vercel as two separate projects (Frontend and Backend) with the included deployment configuration. 
+PRInsight is deployed as a single Vercel project using **Vercel Services**, with the React frontend and FastAPI backend running under the same domain.
 
-1. **Frontend Project:**
-   - Framework Preset: `Vite`
-   - Root Directory: `frontend`
-   - Environment Variables:
-     - `VITE_API_BASE_URL` = `https://<your-backend-url>.vercel.app`
+### Production
 
-2. **Backend Project:**
-   - Framework Preset: `Other`
-   - Root Directory: `backend`
-   - Environment Variables:
-     - `GITHUB_TOKEN` = `ghp_...`
-     - `CORS_ORIGINS` = `["https://<your-frontend-url>.vercel.app"]`
-     - `COOKIE_SAMESITE` = `none`
-     - `COOKIE_SECURE` = `true`
-     - *(Optional) OAuth Variables:* `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `FRONTEND_URL`, `GITHUB_OAUTH_REDIRECT_URI`
+🌐 **Live Demo:**  
+https://pr-insight-phi.vercel.app/
 
-> **Note on Serverless:** The backend uses an in-memory cache and rate limiter which reset across Vercel cold starts. This is expected and acceptable for portfolio/demo deployments.
+### Architecture
 
+```text
+https://pr-insight-phi.vercel.app
+            │
+            ├── /            → React frontend
+            ├── /api/*      → FastAPI backend
+            ├── /docs       → Swagger API docs
+            └── /redoc      → ReDoc
+```
 ---
 
 # 📋 Example
