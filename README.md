@@ -74,7 +74,7 @@ This enables developers to:
 
 > Screenshots will be updated as the project evolves.
 
-- Landing Page
+![Landing Page](assets/landing_page.png)
 - Analysis Progress
 - Conflict Report
 - No Conflicts Screen
