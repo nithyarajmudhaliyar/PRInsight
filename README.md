@@ -70,17 +70,6 @@ This enables developers to:
 
 ---
 
-# 📸 Screenshots
-
-> Screenshots will be updated as the project evolves.
-
-![Landing Page](assets/landing_page.png)
-- Analysis Progress
-- Conflict Report
-- No Conflicts Screen
-
----
-
 # 🛠 Tech Stack
 
 ## Frontend
