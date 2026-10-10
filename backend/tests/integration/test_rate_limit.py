@@ -106,23 +106,22 @@ class TestAuthenticatedRateLimit:
     """Rate limiting for authenticated users (separate per-user bucket)."""
 
     def _create_session(self) -> str:
-        """Create a fake session in the AuthService and return the session ID."""
+        """Create a fake session in the AuthService by mocking get_current_user."""
         import secrets
-        import time
-
         auth_service = deps.get_auth_service()
         session_id = secrets.token_urlsafe(32)
-        auth_service._sessions[session_id] = {
-            "user": {
-                "id": 12345,
-                "login": "testuser",
-                "name": "Test User",
-                "avatar_url": "https://example.com/avatar.png",
-            },
-            "access_token": "gho_fake_token",
-            "created_at": time.time(),
-            "expires_at": time.time() + 86400,
-        }
+        
+        async def mock_get_current_user(sid):
+            if sid == session_id:
+                return {
+                    "id": 12345,
+                    "login": "testuser",
+                    "name": "Test User",
+                    "avatar_url": "https://example.com/avatar.png",
+                }
+            raise Exception("Invalid session")
+            
+        auth_service.get_current_user = mock_get_current_user
         return session_id
 
     def test_authenticated_user_has_separate_limit(self, low_limit_client: TestClient):

@@ -140,7 +140,7 @@ def _get_auth_rate_limiter() -> RateLimiter:
     return _auth_rate_limiter
 
 
-def check_rate_limit(request: Request, prinsight_session: str | None = Cookie(default=None)) -> None:
+async def check_rate_limit(request: Request, prinsight_session: str | None = Cookie(default=None)) -> None:
     """
     FastAPI dependency that enforces rate limits on the analysis endpoint.
 
@@ -157,7 +157,7 @@ def check_rate_limit(request: Request, prinsight_session: str | None = Cookie(de
     user_id: str | None = None
     if prinsight_session:
         try:
-            user_data = auth_service.get_current_user(prinsight_session)
+            user_data = await auth_service.get_current_user(prinsight_session)
             user_id = str(user_data.get("id"))
         except Exception:
             # Invalid or expired session — treat as anonymous

@@ -25,6 +25,7 @@ from app.core.constants import (
     OAUTH_STATE_TTL_SECONDS,
 )
 from app.exceptions.auth import AuthenticationError, OAuthError, OAuthNotConfiguredError
+from app.services.session_store import SessionStore, SessionStoreError
 
 logger = logging.getLogger(__name__)
 
@@ -36,15 +37,19 @@ class AuthService:
     Attributes:
         _oauth_client: GitHubOAuthClient for token exchange and profile fetching.
         _settings: Application settings.
-        _sessions: In-memory session store {session_id: session_data}.
         _oauth_states: In-memory CSRF state store {state: expiry_timestamp}.
+        _session_store: Persistent Redis-backed session store.
     """
 
     def __init__(self, oauth_client: GitHubOAuthClient, settings: Settings) -> None:
         self._oauth_client = oauth_client
         self._settings = settings
-        self._sessions: dict[str, dict] = {}
         self._oauth_states: dict[str, float] = {}
+        self._session_store = SessionStore(
+            redis_url=settings.UPSTASH_REDIS_REST_URL,
+            redis_token=settings.UPSTASH_REDIS_REST_TOKEN,
+            encryption_key=settings.OAUTH_TOKEN_ENCRYPTION_KEY,
+        )
 
     def _ensure_oauth_configured(self) -> None:
         """Raise OAuthNotConfiguredError if OAuth credentials are missing."""
@@ -132,7 +137,8 @@ class AuthService:
         # Create a session
         session_id = secrets.token_urlsafe(32)
         now = time.time()
-        self._sessions[session_id] = {
+        
+        session_data = {
             "user": {
                 "id": profile.get("id"),
                 "login": profile.get("login"),
@@ -141,13 +147,22 @@ class AuthService:
             },
             "access_token": access_token,
             "created_at": now,
-            "expires_at": now + self._settings.SESSION_TTL_SECONDS,
         }
+
+        try:
+            await self._session_store.save_session(
+                session_id, 
+                session_data, 
+                ttl_seconds=self._settings.SESSION_TTL_SECONDS
+            )
+        except SessionStoreError as e:
+            logger.error("Failed to persist session: %s", e)
+            raise OAuthError("Internal error creating session.") from e
 
         logger.info("Session created for GitHub user: %s", profile.get("login"))
         return session_id
 
-    def get_current_user(self, session_id: str | None) -> dict:
+    async def get_current_user(self, session_id: str | None) -> dict:
         """
         Look up the authenticated user from a session ID.
 
@@ -158,32 +173,37 @@ class AuthService:
             User data dict with id, login, name, avatar_url.
 
         Raises:
-            AuthenticationError: If no session or session is expired.
+            AuthenticationError: If no session, session expired, or storage error.
         """
         if not session_id:
             raise AuthenticationError()
 
-        session = self._sessions.get(session_id)
+        try:
+            session = await self._session_store.get_session(session_id)
+        except SessionStoreError as e:
+            logger.error("Session store error during get_current_user: %s", e)
+            raise AuthenticationError("Session verification failed.") from e
+
         if session is None:
             raise AuthenticationError()
 
-        if time.time() > session["expires_at"]:
-            # Session expired — clean it up
-            del self._sessions[session_id]
-            raise AuthenticationError("Session has expired. Please sign in again.")
-
+        # We rely on Redis TTL for expiration, so if it exists, it's valid.
         return session["user"]
 
-    def logout(self, session_id: str | None) -> None:
+    async def logout(self, session_id: str | None) -> None:
         """
         Remove a session, effectively logging out the user.
 
         Args:
             session_id: The session ID from the cookie.
         """
-        if session_id and session_id in self._sessions:
-            logger.info(
-                "Session removed for user: %s",
-                self._sessions[session_id]["user"].get("login"),
-            )
-            del self._sessions[session_id]
+        if session_id:
+            try:
+                # Optionally, fetch user to log who logged out before deleting
+                # session = await self._session_store.get_session(session_id)
+                # if session:
+                #     logger.info("Session removed for user: %s", session["user"].get("login"))
+                await self._session_store.delete_session(session_id)
+            except SessionStoreError as e:
+                logger.error("Session store error during logout: %s", e)
+

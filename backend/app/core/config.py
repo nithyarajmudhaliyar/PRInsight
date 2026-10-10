@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False  # True in production (requires HTTPS)
     COOKIE_SAMESITE: str = "lax"  # Set to "none" for cross-origin deployment
 
+    # ── Session Storage (Upstash Redis + Fernet) ───────────────────────────
+    UPSTASH_REDIS_REST_URL: str = ""
+    UPSTASH_REDIS_REST_TOKEN: str = ""
+    OAUTH_TOKEN_ENCRYPTION_KEY: str = ""  # Fernet key (32 bytes base64)
+
     # ── CORS ───────────────────────────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 

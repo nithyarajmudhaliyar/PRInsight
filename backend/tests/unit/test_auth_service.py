@@ -15,6 +15,20 @@ from app.exceptions.auth import AuthenticationError, OAuthError, OAuthNotConfigu
 from app.services.auth_service import AuthService
 
 
+class MockSessionStore:
+    def __init__(self):
+        self.sessions = {}
+        
+    async def save_session(self, session_id, data, ttl_seconds):
+        self.sessions[session_id] = data
+        
+    async def get_session(self, session_id):
+        return self.sessions.get(session_id)
+        
+    async def delete_session(self, session_id):
+        self.sessions.pop(session_id, None)
+
+
 @pytest.fixture
 def auth_settings() -> Settings:
     """Settings configured for auth testing with OAuth enabled."""
@@ -55,13 +69,17 @@ def mock_oauth_client():
 @pytest.fixture
 def auth_service(mock_oauth_client, auth_settings) -> AuthService:
     """AuthService with mocked dependencies."""
-    return AuthService(oauth_client=mock_oauth_client, settings=auth_settings)
+    service = AuthService(oauth_client=mock_oauth_client, settings=auth_settings)
+    service._session_store = MockSessionStore()
+    return service
 
 
 @pytest.fixture
 def auth_service_no_oauth(mock_oauth_client, auth_settings_no_oauth) -> AuthService:
     """AuthService with OAuth not configured."""
-    return AuthService(oauth_client=mock_oauth_client, settings=auth_settings_no_oauth)
+    service = AuthService(oauth_client=mock_oauth_client, settings=auth_settings_no_oauth)
+    service._session_store = MockSessionStore()
+    return service
 
 
 class TestCreateLoginUrl:
@@ -129,12 +147,12 @@ class TestHandleCallback:
         _, state = auth_service.create_login_url()
         session_id = await auth_service.handle_callback(code="valid_code", state=state)
         assert session_id is not None
-        assert len(auth_service._sessions) == 1
+        assert len(auth_service._session_store.sessions) == 1
 
     async def test_session_contains_user_data(self, auth_service):
         _, state = auth_service.create_login_url()
         session_id = await auth_service.handle_callback(code="valid_code", state=state)
-        session = auth_service._sessions[session_id]
+        session = auth_service._session_store.sessions[session_id]
         assert session["user"]["login"] == "testuser"
         assert session["user"]["id"] == 12345
 
@@ -158,24 +176,16 @@ class TestGetCurrentUser:
     async def test_returns_user_for_valid_session(self, auth_service):
         _, state = auth_service.create_login_url()
         session_id = await auth_service.handle_callback(code="code", state=state)
-        user = auth_service.get_current_user(session_id)
+        user = await auth_service.get_current_user(session_id)
         assert user["login"] == "testuser"
 
-    def test_raises_for_missing_session_id(self, auth_service):
+    async def test_raises_for_missing_session_id(self, auth_service):
         with pytest.raises(AuthenticationError):
-            auth_service.get_current_user(None)
+            await auth_service.get_current_user(None)
 
-    def test_raises_for_invalid_session_id(self, auth_service):
+    async def test_raises_for_invalid_session_id(self, auth_service):
         with pytest.raises(AuthenticationError):
-            auth_service.get_current_user("nonexistent_session")
-
-    async def test_raises_for_expired_session(self, auth_service):
-        _, state = auth_service.create_login_url()
-        session_id = await auth_service.handle_callback(code="code", state=state)
-        # Manually expire the session
-        auth_service._sessions[session_id]["expires_at"] = time.time() - 1
-        with pytest.raises(AuthenticationError, match="expired"):
-            auth_service.get_current_user(session_id)
+            await auth_service.get_current_user("nonexistent_session")
 
 
 class TestLogout:
@@ -184,18 +194,18 @@ class TestLogout:
     async def test_logout_removes_session(self, auth_service):
         _, state = auth_service.create_login_url()
         session_id = await auth_service.handle_callback(code="code", state=state)
-        assert len(auth_service._sessions) == 1
-        auth_service.logout(session_id)
-        assert len(auth_service._sessions) == 0
+        assert len(auth_service._session_store.sessions) == 1
+        await auth_service.logout(session_id)
+        assert len(auth_service._session_store.sessions) == 0
 
-    def test_logout_with_no_session_is_safe(self, auth_service):
+    async def test_logout_with_no_session_is_safe(self, auth_service):
         # Should not raise
-        auth_service.logout(None)
-        auth_service.logout("nonexistent")
+        await auth_service.logout(None)
+        await auth_service.logout("nonexistent")
 
     async def test_user_not_found_after_logout(self, auth_service):
         _, state = auth_service.create_login_url()
         session_id = await auth_service.handle_callback(code="code", state=state)
-        auth_service.logout(session_id)
+        await auth_service.logout(session_id)
         with pytest.raises(AuthenticationError):
-            auth_service.get_current_user(session_id)
+            await auth_service.get_current_user(session_id)

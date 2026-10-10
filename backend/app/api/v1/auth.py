@@ -146,7 +146,7 @@ async def get_me(
     The session ID is read from the HTTP-only cookie set during login.
     Returns 401 if the user is not authenticated.
     """
-    user_data = service.get_current_user(prinsight_session)
+    user_data = await service.get_current_user(prinsight_session)
     return AuthUserResponse(data=AuthUser(**user_data))
 
 
@@ -166,7 +166,7 @@ async def logout(
 
     Removes the server-side session and clears the session cookie.
     """
-    service.logout(prinsight_session)
+    await service.logout(prinsight_session)
 
     response.delete_cookie(key=SESSION_COOKIE_NAME, path="/")
     return LogoutResponse()
