@@ -6,6 +6,7 @@ Stores OAuth access tokens securely encrypted via Fernet.
 import json
 import logging
 import hashlib
+import time
 from typing import Any
 
 from cryptography.fernet import Fernet
@@ -99,7 +100,10 @@ class SessionStore:
             raise SessionStoreConfigurationError(msg)
 
         try:
-            payload = json.dumps(session_data).encode()
+            payload_data = dict(session_data)
+            if "expires_at" not in payload_data and ttl_seconds:
+                payload_data["expires_at"] = time.time() + ttl_seconds
+            payload = json.dumps(payload_data).encode()
             encrypted_payload = self.fernet.encrypt(payload).decode()
             
             key = self._hash_session_id(session_id)
@@ -122,7 +126,15 @@ class SessionStore:
                 return None
                 
             payload = self.fernet.decrypt(encrypted_payload.encode()).decode()
-            return json.loads(payload)
+            data = json.loads(payload)
+            if "expires_at" in data and time.time() > data["expires_at"]:
+                logger.info("Session %s has expired based on payload timestamp", session_id)
+                try:
+                    await self.redis.delete(key)
+                except Exception:
+                    pass
+                return None
+            return data
         except Exception as e:
             logger.error("Failed to retrieve or decrypt session from Redis: %s", e)
             raise SessionStoreError("Could not retrieve session") from e
