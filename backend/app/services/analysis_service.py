@@ -57,12 +57,17 @@ class AnalysisService:
         self._cache = cache
         self._settings = settings
 
-    async def analyze(self, pr_url: str) -> AnalyzeResponse:
+    async def analyze(
+        self,
+        pr_url: str,
+        access_token: str | None = None,
+    ) -> AnalyzeResponse:
         """
         Run the full analysis workflow for a Pull Request URL.
 
         Args:
             pr_url: Full GitHub Pull Request URL.
+            access_token: Optional request-scoped GitHub access token.
 
         Returns:
             AnalyzeResponse with conflict data and metadata.
@@ -92,12 +97,12 @@ class AnalysisService:
 
         # ── Step 2: Fetch target PR details ──────────────────────────────
         pr_data = await self._github.get_pull_request(
-            components.owner, components.repo, components.number
+            components.owner, components.repo, components.number, access_token=access_token
         )
 
         # ── Step 3: Fetch target PR changed files ────────────────────────
         target_files_data = await self._github.get_pull_request_files(
-            components.owner, components.repo, components.number
+            components.owner, components.repo, components.number, access_token=access_token
         )
         target_file_paths = {f["filename"] for f in target_files_data}
         target_patches: dict[str, str | None] = {
@@ -106,7 +111,7 @@ class AnalysisService:
 
         # ── Step 4: Fetch open PRs ───────────────────────────────────────
         open_prs = await self._github.get_open_pull_requests(
-            components.owner, components.repo
+            components.owner, components.repo, access_token=access_token
         )
 
         # Filter out the target PR itself from the open PRs list.
@@ -126,7 +131,7 @@ class AnalysisService:
         async def fetch_pr_files(pr: dict[str, Any]) -> dict[str, Any]:
             async with semaphore:
                 files = await self._github.get_pull_request_files(
-                    components.owner, components.repo, pr["number"]
+                    components.owner, components.repo, pr["number"], access_token=access_token
                 )
                 return {
                     "number": pr["number"],

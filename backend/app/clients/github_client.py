@@ -2,14 +2,8 @@
 GitHub REST API client.
 
 Self-contained HTTPX-based client that encapsulates all communication
-with the GitHub API. No base_client.py abstraction — all HTTP config
-(timeouts, headers, retries) lives here.
-
-Future migration path:
-    When a second external client is introduced (e.g., ai_client.py),
-    extract shared constructor concerns (AsyncClient setup, retry logic,
-    default headers) into a base_client.py. The extraction is a
-    straightforward refactor because all HTTP config is co-located here.
+with the GitHub API. Supports request-scoped user credentials while
+falling back to the configured backend GITHUB_TOKEN when no user token is provided.
 """
 
 import asyncio
@@ -47,7 +41,6 @@ class GitHubClient:
             base_url=settings.GITHUB_API_BASE_URL,
             headers={
                 "Accept": "application/vnd.github.v3+json",
-                "Authorization": f"Bearer {settings.GITHUB_TOKEN}",
                 "User-Agent": f"{settings.APP_NAME}/{settings.APP_VERSION}",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
@@ -58,18 +51,43 @@ class GitHubClient:
         """Close the underlying HTTPX client."""
         await self._client.aclose()
 
+    def _get_auth_headers(self, access_token: str | None = None) -> dict[str, str]:
+        """
+        Return request-scoped authorization headers.
+
+        Uses the supplied access_token if provided; falls back to the
+        configured backend GITHUB_TOKEN if no user token is provided.
+        Never mutates the shared self._client.headers.
+        """
+        token = access_token if access_token is not None else self._settings.GITHUB_TOKEN
+        if token:
+            return {"Authorization": f"Bearer {token}"}
+        return {}
+
     # ── Public API methods ───────────────────────────────────────────────
 
-    async def get_pull_request(self, owner: str, repo: str, number: int) -> dict[str, Any]:
+    async def get_pull_request(
+        self,
+        owner: str,
+        repo: str,
+        number: int,
+        access_token: str | None = None,
+    ) -> dict[str, Any]:
         """
         Fetch a single Pull Request by number.
 
         GET /repos/{owner}/{repo}/pulls/{number}
         """
         path = f"/repos/{owner}/{repo}/pulls/{number}"
-        return await self._request("GET", path)
+        return await self._request("GET", path, access_token=access_token)
 
-    async def get_pull_request_files(self, owner: str, repo: str, number: int) -> list[dict[str, Any]]:
+    async def get_pull_request_files(
+        self,
+        owner: str,
+        repo: str,
+        number: int,
+        access_token: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Fetch the list of files changed in a Pull Request.
 
@@ -80,9 +98,20 @@ class GitHubClient:
         is returned in the MVP.
         """
         path = f"/repos/{owner}/{repo}/pulls/{number}/files"
-        return await self._request("GET", path, params={"per_page": GITHUB_PER_PAGE})
+        return await self._request(
+            "GET",
+            path,
+            params={"per_page": GITHUB_PER_PAGE},
+            access_token=access_token,
+        )
 
-    async def get_open_pull_requests(self, owner: str, repo: str, max_prs: int | None = None) -> list[dict[str, Any]]:
+    async def get_open_pull_requests(
+        self,
+        owner: str,
+        repo: str,
+        max_prs: int | None = None,
+        access_token: str | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Fetch open Pull Requests for a repository.
 
@@ -102,6 +131,7 @@ class GitHubClient:
                 "sort": "updated",
                 "direction": "desc",
             },
+            access_token=access_token,
         )
 
     # ── Internal request handling ────────────────────────────────────────
@@ -111,6 +141,7 @@ class GitHubClient:
         method: str,
         path: str,
         params: dict[str, Any] | None = None,
+        access_token: str | None = None,
     ) -> Any:
         """
         Execute an HTTP request with retry logic for transient failures.
@@ -121,12 +152,19 @@ class GitHubClient:
             - Network timeouts
 
         Raises typed exceptions for non-retryable failures.
+        Never logs authorization headers or tokens.
         """
         last_exception: Exception | None = None
+        headers = self._get_auth_headers(access_token)
 
         for attempt in range(1, self._settings.GITHUB_MAX_RETRIES + 1):
             try:
-                response = await self._client.request(method, path, params=params)
+                response = await self._client.request(
+                    method,
+                    path,
+                    params=params,
+                    headers=headers,
+                )
 
                 logger.info(
                     "GitHub API: %s %s — %d — attempt %d",
@@ -153,8 +191,11 @@ class GitHubClient:
                     if remaining == "0":
                         reset_at = response.headers.get("x-ratelimit-reset", None)
                         raise GitHubRateLimitError(reset_at=reset_at)
-                    # Abuse detection — treat as rate limit
-                    raise GitHubRateLimitError()
+                    resp_body = response.text.lower()
+                    if "rate limit" in resp_body or "secondary rate limit" in resp_body:
+                        raise GitHubRateLimitError()
+                    # Forbidden or insufficient permissions
+                    raise GitHubAPIError(status_code=403, detail="Forbidden or insufficient permissions.")
 
                 if response.status_code == 429:
                     reset_at = response.headers.get("x-ratelimit-reset", None)
