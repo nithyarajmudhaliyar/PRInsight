@@ -244,6 +244,27 @@ class TestGetCurrentUser:
         with pytest.raises(AuthenticationError):
             await auth_service.get_current_user("nonexistent_session")
 
+    async def test_raises_session_store_error_when_storage_fails(self, auth_service):
+        from app.services.session_store import SessionStoreError
+        auth_service._session_store.get_session = AsyncMock(
+            side_effect=SessionStoreError("Redis connection lost")
+        )
+        # Must raise SessionStoreError, NOT AuthenticationError!
+        with pytest.raises(SessionStoreError, match="Redis connection lost"):
+            await auth_service.get_current_user("some_session_id")
+
+    async def test_get_session_propagates_storage_error(self, auth_service):
+        from app.services.session_store import SessionStoreError
+        auth_service._session_store.get_session = AsyncMock(
+            side_effect=SessionStoreError("Redis timeout")
+        )
+        with pytest.raises(SessionStoreError):
+            await auth_service.get_session("some_session_id")
+
+    async def test_get_session_returns_none_for_none_id(self, auth_service):
+        result = await auth_service.get_session(None)
+        assert result is None
+
 
 class TestLogout:
     """Tests for AuthService.logout."""

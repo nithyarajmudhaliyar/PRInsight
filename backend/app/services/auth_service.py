@@ -168,6 +168,24 @@ class AuthService:
         logger.info("Session created for GitHub user: %s", profile.get("login"))
         return session_id
 
+    async def get_session(self, session_id: str | None) -> dict | None:
+        """
+        Retrieve the full session data including user profile and access token.
+
+        Args:
+            session_id: The session ID from the cookie.
+
+        Returns:
+            Session dict if found and valid, or None if session_id is None or expired/not found.
+
+        Raises:
+            SessionStoreError: If persistent session storage fails or is unavailable.
+        """
+        if not session_id:
+            return None
+
+        return await self._session_store.get_session(session_id)
+
     async def get_current_user(self, session_id: str | None) -> dict:
         """
         Look up the authenticated user from a session ID.
@@ -179,21 +197,16 @@ class AuthService:
             User data dict with id, login, name, avatar_url.
 
         Raises:
-            AuthenticationError: If no session, session expired, or storage error.
+            AuthenticationError: If no session or session is expired/invalid.
+            SessionStoreError: If persistent session storage fails or is unavailable.
         """
         if not session_id:
-            raise AuthenticationError()
+            raise AuthenticationError("Authentication required.")
 
-        try:
-            session = await self._session_store.get_session(session_id)
-        except SessionStoreError as e:
-            logger.error("Session store error during get_current_user: %s", e)
-            raise AuthenticationError("Session verification failed.") from e
-
+        session = await self._session_store.get_session(session_id)
         if session is None:
-            raise AuthenticationError()
+            raise AuthenticationError("Session expired or invalid.")
 
-        # We rely on Redis TTL for expiration, so if it exists, it's valid.
         return session["user"]
 
     async def logout(self, session_id: str | None) -> None:

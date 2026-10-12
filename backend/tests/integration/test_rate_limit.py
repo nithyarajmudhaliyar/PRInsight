@@ -14,7 +14,9 @@ from fastapi.testclient import TestClient
 
 from app.api import dependencies as deps
 from app.core.constants import SESSION_COOKIE_NAME
+from app.exceptions.auth import AuthenticationError
 from app.middleware.rate_limiter import RateLimiter
+from app.services.session_store import SessionStoreError
 
 
 @pytest.fixture(autouse=True)
@@ -119,7 +121,7 @@ class TestAuthenticatedRateLimit:
                     "name": "Test User",
                     "avatar_url": "https://example.com/avatar.png",
                 }
-            raise Exception("Invalid session")
+            raise AuthenticationError("Invalid session")
             
         auth_service.get_current_user = mock_get_current_user
         return session_id
@@ -175,6 +177,7 @@ class TestAuthenticatedRateLimit:
 
     def test_expired_session_falls_back_to_anonymous(self, low_limit_client: TestClient):
         """A request with an invalid/expired session should be rate-limited as anonymous."""
+        self._create_session()
         low_limit_client.cookies.set(SESSION_COOKIE_NAME, "invalid_session_id")
 
         # Exhaust the anonymous limit
@@ -190,3 +193,24 @@ class TestAuthenticatedRateLimit:
         )
         assert response.status_code == 429
         low_limit_client.cookies.clear()
+
+    def test_rate_limit_fails_when_session_store_unavailable(self, low_limit_client: TestClient):
+        """When session cookie is provided but session store fails, must not fall back to anonymous."""
+        auth_service = deps.get_auth_service()
+
+        async def mock_failing_get_current_user(sid):
+            raise SessionStoreError("Redis connection failure")
+
+        auth_service.get_current_user = mock_failing_get_current_user
+        low_limit_client.cookies.set(SESSION_COOKIE_NAME, "some_cookie_session")
+
+        response = low_limit_client.post(
+            "/api/v1/analyze",
+            json={"pr_url": "https://github.com/owner/repo/pull/1"},
+        )
+        assert response.status_code == 503
+        data = response.json()
+        assert data["status"] == "error"
+        assert data["error"]["code"] == "SESSION_STORE_ERROR"
+        low_limit_client.cookies.clear()
+

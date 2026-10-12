@@ -226,6 +226,26 @@ class TestMeEndpoint:
         finally:
             test_client.app.dependency_overrides.clear()
 
+    def test_me_returns_503_when_session_store_unavailable(self, test_client):
+        """Should return 503 (not 401) when session store has an outage."""
+        from app.services.session_store import SessionStoreError
+
+        mock_service = AsyncMock(spec=AuthService)
+        mock_service.get_current_user.side_effect = SessionStoreError("Storage outage")
+        test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
+            response = test_client.get(
+                "/api/v1/auth/me",
+                cookies={"prinsight_session": "any_session_id"},
+            )
+            assert response.status_code == 503
+            data = response.json()
+            assert data["status"] == "error"
+            assert data["error"]["code"] == "SESSION_STORE_ERROR"
+        finally:
+            test_client.app.dependency_overrides.clear()
+
 
 class TestLogoutEndpoint:
     """Tests for POST /api/v1/auth/logout."""

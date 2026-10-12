@@ -18,6 +18,7 @@ from app.clients.github_client import GitHubClient
 from app.clients.github_oauth_client import GitHubOAuthClient
 from app.core.config import Settings, get_settings
 from app.core.constants import SESSION_COOKIE_NAME
+from app.exceptions.auth import AuthenticationError
 from app.exceptions.rate_limit import RateLimitExceededError
 from app.middleware.rate_limiter import RateLimiter
 from app.services.analysis_service import AnalysisService
@@ -159,8 +160,11 @@ async def check_rate_limit(request: Request, prinsight_session: str | None = Coo
         try:
             user_data = await auth_service.get_current_user(prinsight_session)
             user_id = str(user_data.get("id"))
-        except Exception:
-            # Invalid or expired session — treat as anonymous
+        except AuthenticationError:
+            # Invalid or expired session — treat as anonymous.
+            # Note: SessionStoreError is intentionally NOT caught here.
+            # If session storage has an outage, the request must fail
+            # rather than silently falling back to anonymous.
             pass
 
     if user_id:
