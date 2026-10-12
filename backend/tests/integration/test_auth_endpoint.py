@@ -59,6 +59,26 @@ class TestGitHubLoginEndpoint:
         finally:
             test_client.app.dependency_overrides.clear()
 
+    def test_login_returns_503_when_session_store_fails(self, test_client):
+        """Login should return 503 when saving OAuth state fails due to session store error."""
+        from app.services.session_store import SessionStoreError
+
+        mock_service = AsyncMock(spec=AuthService)
+        mock_service.create_login_url.side_effect = SessionStoreError("Redis unreachable")
+        test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
+            response = test_client.get(
+                "/api/v1/auth/github/login",
+                follow_redirects=False,
+            )
+            assert response.status_code == 503
+            data = response.json()
+            assert data["error"]["code"] == "SESSION_STORE_ERROR"
+        finally:
+            test_client.app.dependency_overrides.clear()
+
+
 
 class TestGitHubCallbackEndpoint:
     """Tests for GET /api/v1/auth/github/callback."""
@@ -151,10 +171,10 @@ class TestGitHubCallbackEndpoint:
             test_client.app.dependency_overrides.clear()
 
     def test_callback_fails_when_session_persistence_fails(self, test_client):
-        """Callback must not report success or set cookie when session persistence fails."""
-        from app.exceptions.auth import OAuthError
+        """Callback must return 503 and not set cookie when session persistence fails."""
+        from app.services.session_store import SessionStoreError
         mock_service = AsyncMock(spec=AuthService)
-        mock_service.handle_callback.side_effect = OAuthError("Failed to persist session.")
+        mock_service.handle_callback.side_effect = SessionStoreError("Failed to persist session.")
         test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
 
         try:
@@ -163,15 +183,61 @@ class TestGitHubCallbackEndpoint:
                 cookies={"prinsight_oauth_state": "valid_state"},
                 follow_redirects=False,
             )
-            assert response.status_code == 400
+            assert response.status_code == 503
             data = response.json()
-            assert data["error"]["code"] == "OAUTH_ERROR"
+            assert data["error"]["code"] == "SESSION_STORE_ERROR"
             # Session cookie must NOT be set
             cookies = response.headers.get_list("set-cookie")
             session_cookie = [c for c in cookies if "prinsight_session" in c]
             assert len(session_cookie) == 0
         finally:
             test_client.app.dependency_overrides.clear()
+
+    def test_callback_invalid_or_expired_state_returns_400(self, test_client):
+        """Callback with invalid or expired state in storage should return 400."""
+        from app.exceptions.auth import OAuthError
+        mock_service = AsyncMock(spec=AuthService)
+        mock_service.handle_callback.side_effect = OAuthError("Invalid or expired OAuth state parameter.")
+        test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
+            response = test_client.get(
+                "/api/v1/auth/github/callback?code=valid_code&state=expired_state",
+                cookies={"prinsight_oauth_state": "expired_state"},
+                follow_redirects=False,
+            )
+            assert response.status_code == 400
+            data = response.json()
+            assert data["error"]["code"] == "OAUTH_ERROR"
+            assert "Invalid or expired" in data["error"]["message"]
+            cookies = response.headers.get_list("set-cookie")
+            session_cookie = [c for c in cookies if "prinsight_session" in c]
+            assert len(session_cookie) == 0
+        finally:
+            test_client.app.dependency_overrides.clear()
+
+    def test_callback_state_storage_outage_returns_503(self, test_client):
+        """Callback must return 503 when state verification fails due to storage outage."""
+        from app.services.session_store import SessionStoreError
+        mock_service = AsyncMock(spec=AuthService)
+        mock_service.handle_callback.side_effect = SessionStoreError("Redis connection failure")
+        test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
+            response = test_client.get(
+                "/api/v1/auth/github/callback?code=valid_code&state=valid_state",
+                cookies={"prinsight_oauth_state": "valid_state"},
+                follow_redirects=False,
+            )
+            assert response.status_code == 503
+            data = response.json()
+            assert data["error"]["code"] == "SESSION_STORE_ERROR"
+            cookies = response.headers.get_list("set-cookie")
+            session_cookie = [c for c in cookies if "prinsight_session" in c]
+            assert len(session_cookie) == 0
+        finally:
+            test_client.app.dependency_overrides.clear()
+
 
 
 class TestMeEndpoint:

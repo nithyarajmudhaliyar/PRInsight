@@ -118,6 +118,15 @@ class TestCreateLoginUrl:
         url, _ = await auth_service.create_login_url()
         assert "scope=read" in url
 
+    async def test_create_login_url_propagates_session_store_error(self, auth_service):
+        from app.services.session_store import SessionStoreError
+        auth_service._session_store.save_oauth_state = AsyncMock(
+            side_effect=SessionStoreError("Redis connection failure")
+        )
+        with pytest.raises(SessionStoreError, match="Redis connection failure"):
+            await auth_service.create_login_url()
+
+
 
 class TestValidateState:
     """Tests for AuthService.validate_state."""
@@ -180,6 +189,14 @@ class TestValidateState:
         assert session_id is not None
         assert session_id in shared_store.sessions
 
+    async def test_validate_state_propagates_session_store_error(self, auth_service):
+        from app.services.session_store import SessionStoreError
+        auth_service._session_store.consume_oauth_state = AsyncMock(
+            side_effect=SessionStoreError("Redis timeout during state validation")
+        )
+        with pytest.raises(SessionStoreError, match="Redis timeout during state validation"):
+            await auth_service.validate_state("some_state")
+
 
 class TestHandleCallback:
     """Tests for AuthService.handle_callback."""
@@ -211,20 +228,30 @@ class TestHandleCallback:
             await auth_service_no_oauth.handle_callback(code="code", state="state")
 
     async def test_callback_fails_when_session_storage_unconfigured(self, auth_service):
-        from app.services.session_store import SessionStore
+        from app.services.session_store import SessionStore, SessionStoreConfigurationError
         _, state = await auth_service.create_login_url()
         auth_service._session_store = SessionStore(redis_url="", redis_token="", encryption_key="")
-        with pytest.raises(OAuthError, match="Failed to persist session|Internal error|Failed to validate"):
+        with pytest.raises(SessionStoreConfigurationError):
             await auth_service.handle_callback(code="valid_code", state=state)
 
     async def test_callback_fails_when_session_storage_has_invalid_key(self, auth_service):
-        from app.services.session_store import SessionStore
+        from app.services.session_store import SessionStore, SessionStoreConfigurationError
         _, state = await auth_service.create_login_url()
         auth_service._session_store = SessionStore(
             redis_url="https://redis.example.com", redis_token="tok", encryption_key="invalid-key"
         )
-        with pytest.raises(OAuthError, match="Failed to persist session|Internal error|Failed to validate"):
+        with pytest.raises(SessionStoreConfigurationError):
             await auth_service.handle_callback(code="valid_code", state=state)
+
+    async def test_callback_propagates_session_store_error_on_save_session(self, auth_service):
+        from app.services.session_store import SessionStoreError
+        _, state = await auth_service.create_login_url()
+        auth_service._session_store.save_session = AsyncMock(
+            side_effect=SessionStoreError("Redis write failure")
+        )
+        with pytest.raises(SessionStoreError, match="Redis write failure"):
+            await auth_service.handle_callback(code="valid_code", state=state)
+
 
 
 class TestGetCurrentUser:

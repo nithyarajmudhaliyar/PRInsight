@@ -128,7 +128,7 @@ class SessionStore:
             payload = self.fernet.decrypt(encrypted_payload.encode()).decode()
             data = json.loads(payload)
             if "expires_at" in data and time.time() > data["expires_at"]:
-                logger.info("Session %s has expired based on payload timestamp", session_id)
+                logger.info("Session has expired based on payload timestamp")
                 try:
                     await self.redis.delete(key)
                 except Exception:

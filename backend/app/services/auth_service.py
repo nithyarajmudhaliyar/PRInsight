@@ -6,9 +6,9 @@ Manages the OAuth flow lifecycle:
     2. Handle OAuth callbacks — exchange code, fetch profile, create session.
     3. Session CRUD — create, read, delete.
 
-Sessions are stored in-memory (same approach as TTLCache).
-This means sessions are lost on server restart, which is acceptable
-for development. A persistent store can be added later.
+Sessions and OAuth CSRF states are persisted in Upstash Redis
+with Fernet token encryption and TTL expiration, ensuring compatibility
+with serverless deployments.
 
 Access tokens are stored server-side only — never sent to the frontend.
 """
@@ -66,19 +66,15 @@ class AuthService:
 
         Raises:
             OAuthNotConfiguredError: If OAuth client credentials are not set.
-            OAuthError: If state cannot be stored.
+            SessionStoreError: If saving OAuth state to persistent storage fails.
         """
         self._ensure_oauth_configured()
 
         state = secrets.token_urlsafe(32)
-        try:
-            await self._session_store.save_oauth_state(
-                state=state,
-                ttl_seconds=OAUTH_STATE_TTL_SECONDS,
-            )
-        except SessionStoreError as e:
-            logger.error("Failed to persist OAuth state: %s", e)
-            raise OAuthError("Failed to initiate OAuth login.") from e
+        await self._session_store.save_oauth_state(
+            state=state,
+            ttl_seconds=OAUTH_STATE_TTL_SECONDS,
+        )
 
         params = urllib.parse.urlencode({
             "client_id": self._settings.GITHUB_OAUTH_CLIENT_ID,
@@ -99,16 +95,12 @@ class AuthService:
 
         Raises:
             OAuthError: If state is missing, invalid, or expired.
+            SessionStoreError: If consuming state fails due to session store error.
         """
         if not state:
             raise OAuthError("Missing OAuth state parameter.")
 
-        try:
-            valid = await self._session_store.consume_oauth_state(state)
-        except SessionStoreError as e:
-            logger.error("Session store error validating state: %s", e)
-            raise OAuthError("Failed to validate OAuth state.") from e
-
+        valid = await self._session_store.consume_oauth_state(state)
         if not valid:
             raise OAuthError("Invalid or expired OAuth state parameter.")
 
@@ -126,6 +118,7 @@ class AuthService:
         Raises:
             OAuthError: If code or state is invalid.
             OAuthNotConfiguredError: If OAuth is not configured.
+            SessionStoreError: If session persistence fails.
         """
         self._ensure_oauth_configured()
 
@@ -155,15 +148,11 @@ class AuthService:
             "created_at": now,
         }
 
-        try:
-            await self._session_store.save_session(
-                session_id, 
-                session_data, 
-                ttl_seconds=self._settings.SESSION_TTL_SECONDS
-            )
-        except SessionStoreError as e:
-            logger.error("Failed to persist session: %s", e)
-            raise OAuthError("Internal error creating session.") from e
+        await self._session_store.save_session(
+            session_id, 
+            session_data, 
+            ttl_seconds=self._settings.SESSION_TTL_SECONDS
+        )
 
         logger.info("Session created for GitHub user: %s", profile.get("login"))
         return session_id

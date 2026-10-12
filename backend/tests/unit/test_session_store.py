@@ -356,3 +356,26 @@ class TestSessionExpiry:
         result = await configured_store.get_session(session_id)
         assert result is not None
         assert result["user"]["login"] == "testuser"
+
+
+class TestSessionStoreLogging:
+    """Tests verifying that sensitive session IDs and credentials are never logged."""
+
+    async def test_expired_session_does_not_log_raw_session_id(self, configured_store, caplog):
+        raw_session_id = "sensitive_raw_session_id_abc12345"
+        raw_token = "gho_secret_access_token_xyz987"
+        expired_data = {
+            "user": {"login": "testuser"},
+            "access_token": raw_token,
+            "expires_at": time.time() - 60,
+        }
+        with caplog.at_level("INFO"):
+            await configured_store.save_session(raw_session_id, expired_data, ttl_seconds=3600)
+            res = await configured_store.get_session(raw_session_id)
+            assert res is None
+            await configured_store.delete_session(raw_session_id)
+
+        assert "Session has expired based on payload timestamp" in caplog.text
+        assert raw_session_id not in caplog.text
+        assert raw_token not in caplog.text
+

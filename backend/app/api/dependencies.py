@@ -29,7 +29,7 @@ from app.services.auth_service import AuthService
 #   - TTLCache uses asyncio.Lock (async-safe, not request-scoped)
 #   - GitHubClient wraps a single HTTPX AsyncClient (connection-pooled)
 #   - GitHubOAuthClient wraps a single HTTPX AsyncClient (connection-pooled)
-#   - AuthService stores sessions in-memory (server-scoped)
+#   - AuthService coordinates with persistent Redis SessionStore
 # They are created lazily on first access.
 
 _cache: TTLCache | None = None
@@ -87,7 +87,7 @@ def get_auth_service() -> AuthService:
     Return the singleton AuthService instance.
 
     Uses the singleton GitHubOAuthClient and settings.
-    Singleton because AuthService holds in-memory session state.
+    AuthService coordinates with persistent Redis SessionStore.
     """
     global _auth_service
     if _auth_service is None:
