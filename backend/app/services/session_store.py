@@ -17,18 +17,35 @@ class SessionStoreError(Exception):
     """Base exception for session store errors."""
     pass
 
+
+class SessionStoreConfigurationError(SessionStoreError):
+    """Raised when SessionStore is missing required configuration or has invalid configuration."""
+    pass
+
+
 class SessionStore:
     def __init__(self, redis_url: str, redis_token: str, encryption_key: str):
-        self.redis = Redis(url=redis_url, token=redis_token) if redis_url and redis_token else None
-        
-        if encryption_key:
+        self._config_error: str | None = None
+
+        if not redis_url or not redis_token:
+            self.redis = None
+            self._config_error = "Redis URL or token is missing"
+        else:
+            self.redis = Redis(url=redis_url, token=redis_token)
+
+        if not encryption_key:
+            self.fernet = None
+            if not self._config_error:
+                self._config_error = "OAUTH_TOKEN_ENCRYPTION_KEY is missing"
+        else:
             try:
-                self.fernet = Fernet(encryption_key.encode())
+                key_bytes = encryption_key.encode() if isinstance(encryption_key, str) else encryption_key
+                self.fernet = Fernet(key_bytes)
             except Exception as e:
                 logger.error("Invalid OAUTH_TOKEN_ENCRYPTION_KEY: %s", e)
                 self.fernet = None
-        else:
-            self.fernet = None
+                if not self._config_error:
+                    self._config_error = f"Invalid OAUTH_TOKEN_ENCRYPTION_KEY: {e}"
 
     def is_configured(self) -> bool:
         """Check if both Redis and Encryption key are properly configured."""
@@ -41,8 +58,9 @@ class SessionStore:
     async def save_session(self, session_id: str, session_data: dict, ttl_seconds: int) -> None:
         """Encrypt and save the session data to Redis."""
         if not self.is_configured():
-            logger.warning("Session store not configured, session not saved.")
-            return
+            msg = self._config_error or "Session store is not configured."
+            logger.error("Failed to save session: %s", msg)
+            raise SessionStoreConfigurationError(msg)
 
         try:
             payload = json.dumps(session_data).encode()
@@ -57,7 +75,9 @@ class SessionStore:
     async def get_session(self, session_id: str) -> dict | None:
         """Retrieve and decrypt the session data from Redis."""
         if not self.is_configured():
-            return None
+            msg = self._config_error or "Session store is not configured."
+            logger.error("Failed to retrieve session: %s", msg)
+            raise SessionStoreConfigurationError(msg)
             
         try:
             key = self._hash_session_id(session_id)
@@ -74,7 +94,9 @@ class SessionStore:
     async def delete_session(self, session_id: str) -> None:
         """Delete the session from Redis."""
         if not self.is_configured():
-            return
+            msg = self._config_error or "Session store is not configured."
+            logger.error("Failed to delete session: %s", msg)
+            raise SessionStoreConfigurationError(msg)
             
         try:
             key = self._hash_session_id(session_id)

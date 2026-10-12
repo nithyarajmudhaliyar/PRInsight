@@ -169,6 +169,22 @@ class TestHandleCallback:
         with pytest.raises(OAuthNotConfiguredError):
             await auth_service_no_oauth.handle_callback(code="code", state="state")
 
+    async def test_callback_fails_when_session_storage_unconfigured(self, auth_service):
+        from app.services.session_store import SessionStore
+        auth_service._session_store = SessionStore(redis_url="", redis_token="", encryption_key="")
+        _, state = auth_service.create_login_url()
+        with pytest.raises(OAuthError, match="Failed to persist session|Internal error"):
+            await auth_service.handle_callback(code="valid_code", state=state)
+
+    async def test_callback_fails_when_session_storage_has_invalid_key(self, auth_service):
+        from app.services.session_store import SessionStore
+        auth_service._session_store = SessionStore(
+            redis_url="https://redis.example.com", redis_token="tok", encryption_key="invalid-key"
+        )
+        _, state = auth_service.create_login_url()
+        with pytest.raises(OAuthError, match="Failed to persist session|Internal error"):
+            await auth_service.handle_callback(code="valid_code", state=state)
+
 
 class TestGetCurrentUser:
     """Tests for AuthService.get_current_user."""

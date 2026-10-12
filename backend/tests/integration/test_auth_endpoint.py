@@ -150,6 +150,29 @@ class TestGitHubCallbackEndpoint:
         finally:
             test_client.app.dependency_overrides.clear()
 
+    def test_callback_fails_when_session_persistence_fails(self, test_client):
+        """Callback must not report success or set cookie when session persistence fails."""
+        from app.exceptions.auth import OAuthError
+        mock_service = AsyncMock(spec=AuthService)
+        mock_service.handle_callback.side_effect = OAuthError("Failed to persist session.")
+        test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
+            response = test_client.get(
+                "/api/v1/auth/github/callback?code=valid_code&state=valid_state",
+                cookies={"prinsight_oauth_state": "valid_state"},
+                follow_redirects=False,
+            )
+            assert response.status_code == 400
+            data = response.json()
+            assert data["error"]["code"] == "OAUTH_ERROR"
+            # Session cookie must NOT be set
+            cookies = response.headers.get_list("set-cookie")
+            session_cookie = [c for c in cookies if "prinsight_session" in c]
+            assert len(session_cookie) == 0
+        finally:
+            test_client.app.dependency_overrides.clear()
+
 
 class TestMeEndpoint:
     """Tests for GET /api/v1/auth/me."""
