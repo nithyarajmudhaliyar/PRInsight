@@ -205,11 +205,8 @@ class AuthService:
         """
         if session_id:
             try:
-                # Optionally, fetch user to log who logged out before deleting
-                # session = await self._session_store.get_session(session_id)
-                # if session:
-                #     logger.info("Session removed for user: %s", session["user"].get("login"))
                 await self._session_store.delete_session(session_id)
             except SessionStoreError as e:
                 logger.error("Session store error during logout: %s", e)
+                raise
 

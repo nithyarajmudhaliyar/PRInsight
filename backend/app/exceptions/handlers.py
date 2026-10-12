@@ -30,6 +30,7 @@ from app.exceptions.github import (
 )
 from app.exceptions.rate_limit import RateLimitExceededError
 from app.exceptions.validation import InvalidPRURLError
+from app.services.session_store import SessionStoreError
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,12 @@ async def _handle_oauth_not_configured(request: Request, exc: Exception) -> JSON
     return _error_response(503, err.code, err.message)
 
 
+async def _handle_session_store_error(request: Request, exc: Exception) -> JSONResponse:
+    err = cast(SessionStoreError, exc)
+    logger.error("Session store failure: %s", err)
+    return _error_response(503, "SESSION_STORE_ERROR", "Session storage service is temporarily unavailable.")
+
+
 async def _handle_prinsight_error(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all for any PRInsightError subclass not handled above."""
     err = cast(PRInsightError, exc)
@@ -147,6 +154,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AuthenticationError, _handle_auth_error)
     app.add_exception_handler(OAuthError, _handle_oauth_error)
     app.add_exception_handler(OAuthNotConfiguredError, _handle_oauth_not_configured)
+    app.add_exception_handler(SessionStoreError, _handle_session_store_error)
 
     # Specific GitHub exceptions
     app.add_exception_handler(InvalidPRURLError, _handle_invalid_pr_url)

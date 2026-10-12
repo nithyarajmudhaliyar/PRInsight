@@ -263,6 +263,27 @@ class TestLogoutEndpoint:
         finally:
             test_client.app.dependency_overrides.clear()
 
+    def test_logout_fails_when_session_store_fails(self, test_client):
+        """Logout must fail and return 503 when Redis session deletion fails."""
+        from app.services.session_store import SessionStoreError
+
+        mock_service = AsyncMock(spec=AuthService)
+        mock_service.logout.side_effect = SessionStoreError("Redis deletion failed")
+        test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
+
+        try:
+            response = test_client.post(
+                "/api/v1/auth/logout",
+                cookies={"prinsight_session": "active_session_id"},
+            )
+            assert response.status_code == 503
+            data = response.json()
+            assert data["status"] == "error"
+            assert data["error"]["code"] == "SESSION_STORE_ERROR"
+        finally:
+            test_client.app.dependency_overrides.clear()
+
+
 
 class TestAuthErrorFormat:
     """Verify auth errors follow the consistent error response envelope."""

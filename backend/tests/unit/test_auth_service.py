@@ -266,3 +266,12 @@ class TestLogout:
         await auth_service.logout(session_id)
         with pytest.raises(AuthenticationError):
             await auth_service.get_current_user(session_id)
+
+    async def test_logout_raises_when_session_store_delete_fails(self, auth_service):
+        from app.services.session_store import SessionStoreError
+        auth_service._session_store.delete_session = AsyncMock(
+            side_effect=SessionStoreError("Redis connection dropped")
+        )
+        with pytest.raises(SessionStoreError, match="Redis connection dropped"):
+            await auth_service.logout("some_session_id")
+
