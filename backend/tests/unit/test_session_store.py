@@ -108,3 +108,22 @@ class TestSessionStoreConfiguration:
         )
         with pytest.raises(SessionStoreConfigurationError):
             await store.delete_session("session_123")
+
+    async def test_save_oauth_state_raises_when_unconfigured(self):
+        store = SessionStore(
+            redis_url="",
+            redis_token="",
+            encryption_key="",
+        )
+        with pytest.raises(SessionStoreConfigurationError):
+            await store.save_oauth_state("state_123", 600)
+
+    async def test_consume_oauth_state_raises_when_unconfigured(self):
+        store = SessionStore(
+            redis_url="",
+            redis_token="",
+            encryption_key="",
+        )
+        with pytest.raises(SessionStoreConfigurationError):
+            await store.consume_oauth_state("state_123")
+

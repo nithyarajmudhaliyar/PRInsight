@@ -37,14 +37,12 @@ class AuthService:
     Attributes:
         _oauth_client: GitHubOAuthClient for token exchange and profile fetching.
         _settings: Application settings.
-        _oauth_states: In-memory CSRF state store {state: expiry_timestamp}.
         _session_store: Persistent Redis-backed session store.
     """
 
     def __init__(self, oauth_client: GitHubOAuthClient, settings: Settings) -> None:
         self._oauth_client = oauth_client
         self._settings = settings
-        self._oauth_states: dict[str, float] = {}
         self._session_store = SessionStore(
             redis_url=settings.UPSTASH_REDIS_REST_URL,
             redis_token=settings.UPSTASH_REDIS_REST_TOKEN,
@@ -56,26 +54,31 @@ class AuthService:
         if not self._settings.GITHUB_OAUTH_CLIENT_ID or not self._settings.GITHUB_OAUTH_CLIENT_SECRET:
             raise OAuthNotConfiguredError()
 
-    def create_login_url(self) -> tuple[str, str]:
+    async def create_login_url(self) -> tuple[str, str]:
         """
         Generate a GitHub OAuth authorization URL with a random state parameter.
+
+        The state parameter is persisted to Redis with TTL to support serverless
+        deployments where login and callback execute on different instances.
 
         Returns:
             (authorization_url, state) tuple.
 
         Raises:
             OAuthNotConfiguredError: If OAuth client credentials are not set.
+            OAuthError: If state cannot be stored.
         """
         self._ensure_oauth_configured()
 
         state = secrets.token_urlsafe(32)
-        self._oauth_states[state] = time.time() + OAUTH_STATE_TTL_SECONDS
-
-        # Clean up expired states (simple housekeeping)
-        now = time.time()
-        expired = [s for s, exp in self._oauth_states.items() if exp < now]
-        for s in expired:
-            del self._oauth_states[s]
+        try:
+            await self._session_store.save_oauth_state(
+                state=state,
+                ttl_seconds=OAUTH_STATE_TTL_SECONDS,
+            )
+        except SessionStoreError as e:
+            logger.error("Failed to persist OAuth state: %s", e)
+            raise OAuthError("Failed to initiate OAuth login.") from e
 
         params = urllib.parse.urlencode({
             "client_id": self._settings.GITHUB_OAUTH_CLIENT_ID,
@@ -87,11 +90,12 @@ class AuthService:
         authorization_url = f"{GITHUB_OAUTH_AUTHORIZE_URL}?{params}"
         return authorization_url, state
 
-    def validate_state(self, state: str) -> None:
+    async def validate_state(self, state: str) -> None:
         """
         Validate and consume an OAuth state parameter.
 
-        The state is single-use: it is deleted after validation to prevent replay.
+        The state is single-use: it is deleted from persistent storage after
+        validation to prevent replay attacks across serverless instances.
 
         Raises:
             OAuthError: If state is missing, invalid, or expired.
@@ -99,12 +103,14 @@ class AuthService:
         if not state:
             raise OAuthError("Missing OAuth state parameter.")
 
-        expiry = self._oauth_states.pop(state, None)
-        if expiry is None:
-            raise OAuthError("Invalid OAuth state parameter.")
+        try:
+            valid = await self._session_store.consume_oauth_state(state)
+        except SessionStoreError as e:
+            logger.error("Session store error validating state: %s", e)
+            raise OAuthError("Failed to validate OAuth state.") from e
 
-        if time.time() > expiry:
-            raise OAuthError("OAuth state parameter has expired. Please try again.")
+        if not valid:
+            raise OAuthError("Invalid or expired OAuth state parameter.")
 
     async def handle_callback(self, code: str, state: str) -> str:
         """
@@ -126,7 +132,7 @@ class AuthService:
         if not code:
             raise OAuthError("Missing authorization code.")
 
-        self.validate_state(state)
+        await self.validate_state(state)
 
         # Exchange the authorization code for an access token
         access_token = await self._oauth_client.exchange_code_for_token(code)

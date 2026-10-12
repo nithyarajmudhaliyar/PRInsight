@@ -55,6 +55,42 @@ class SessionStore:
         """Hash the session ID to use as the Redis key, preventing session ID leakage in the DB."""
         return f"session:{hashlib.sha256(session_id.encode()).hexdigest()}"
 
+    def _hash_oauth_state(self, state: str) -> str:
+        """Hash the OAuth state parameter to use as the Redis key."""
+        return f"oauth_state:{hashlib.sha256(state.encode()).hexdigest()}"
+
+    async def save_oauth_state(self, state: str, ttl_seconds: int) -> None:
+        """Save OAuth CSRF state parameter to Redis with TTL."""
+        if not self.is_configured():
+            msg = self._config_error or "Session store is not configured."
+            logger.error("Failed to save OAuth state: %s", msg)
+            raise SessionStoreConfigurationError(msg)
+
+        try:
+            key = self._hash_oauth_state(state)
+            await self.redis.set(key, "1", ex=ttl_seconds)
+        except Exception as e:
+            logger.error("Failed to save OAuth state to Redis: %s", e)
+            raise SessionStoreError("Could not save OAuth state") from e
+
+    async def consume_oauth_state(self, state: str) -> bool:
+        """
+        Validate and atomically delete an OAuth state from Redis.
+        Returns True if the state was valid and successfully consumed, False otherwise.
+        """
+        if not self.is_configured():
+            msg = self._config_error or "Session store is not configured."
+            logger.error("Failed to consume OAuth state: %s", msg)
+            raise SessionStoreConfigurationError(msg)
+
+        try:
+            key = self._hash_oauth_state(state)
+            res = await self.redis.delete(key)
+            return bool(res and int(res) > 0)
+        except Exception as e:
+            logger.error("Failed to consume OAuth state from Redis: %s", e)
+            raise SessionStoreError("Could not consume OAuth state") from e
+
     async def save_session(self, session_id: str, session_data: dict, ttl_seconds: int) -> None:
         """Encrypt and save the session data to Redis."""
         if not self.is_configured():

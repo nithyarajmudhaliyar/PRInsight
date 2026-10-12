@@ -43,7 +43,7 @@ async def github_login(
     when the callback is received.
     """
     settings = get_settings()
-    authorization_url, state = service.create_login_url()
+    authorization_url, state = await service.create_login_url()
 
     response = RedirectResponse(url=authorization_url, status_code=307)
     response.set_cookie(
