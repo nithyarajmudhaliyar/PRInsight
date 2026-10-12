@@ -6,7 +6,7 @@ Manages the OAuth flow lifecycle:
     2. Handle OAuth callbacks — exchange code, fetch profile, create session.
     3. Session CRUD — create, read, delete.
 
-Sessions and OAuth CSRF states are persisted in Upstash Redis
+Sessions and OAuth CSRF states are persisted in Neon PostgreSQL
 with Fernet token encryption and TTL expiration, ensuring compatibility
 with serverless deployments.
 
@@ -37,15 +37,14 @@ class AuthService:
     Attributes:
         _oauth_client: GitHubOAuthClient for token exchange and profile fetching.
         _settings: Application settings.
-        _session_store: Persistent Redis-backed session store.
+        _session_store: Persistent PostgreSQL-backed session store.
     """
 
     def __init__(self, oauth_client: GitHubOAuthClient, settings: Settings) -> None:
         self._oauth_client = oauth_client
         self._settings = settings
         self._session_store = SessionStore(
-            redis_url=settings.UPSTASH_REDIS_REST_URL,
-            redis_token=settings.UPSTASH_REDIS_REST_TOKEN,
+            database_url=settings.DATABASE_URL,
             encryption_key=settings.OAUTH_TOKEN_ENCRYPTION_KEY,
         )
 
@@ -58,7 +57,7 @@ class AuthService:
         """
         Generate a GitHub OAuth authorization URL with a random state parameter.
 
-        The state parameter is persisted to Redis with TTL to support serverless
+        The state parameter is persisted to PostgreSQL with TTL to support serverless
         deployments where login and callback execute on different instances.
 
         Returns:

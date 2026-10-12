@@ -199,7 +199,7 @@ class TestAuthenticatedRateLimit:
         auth_service = deps.get_auth_service()
 
         async def mock_failing_get_current_user(sid):
-            raise SessionStoreError("Redis connection failure")
+            raise SessionStoreError("Database connection failure")
 
         auth_service.get_current_user = mock_failing_get_current_user
         low_limit_client.cookies.set(SESSION_COOKIE_NAME, "some_cookie_session")

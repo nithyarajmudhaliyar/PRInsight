@@ -64,7 +64,7 @@ class TestGitHubLoginEndpoint:
         from app.services.session_store import SessionStoreError
 
         mock_service = AsyncMock(spec=AuthService)
-        mock_service.create_login_url.side_effect = SessionStoreError("Redis unreachable")
+        mock_service.create_login_url.side_effect = SessionStoreError("Database unreachable")
         test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
 
         try:
@@ -220,7 +220,7 @@ class TestGitHubCallbackEndpoint:
         """Callback must return 503 when state verification fails due to storage outage."""
         from app.services.session_store import SessionStoreError
         mock_service = AsyncMock(spec=AuthService)
-        mock_service.handle_callback.side_effect = SessionStoreError("Redis connection failure")
+        mock_service.handle_callback.side_effect = SessionStoreError("Database connection failure")
         test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
 
         try:
@@ -350,11 +350,11 @@ class TestLogoutEndpoint:
             test_client.app.dependency_overrides.clear()
 
     def test_logout_fails_when_session_store_fails(self, test_client):
-        """Logout must fail and return 503 when Redis session deletion fails."""
+        """Logout must fail and return 503 when database session deletion fails."""
         from app.services.session_store import SessionStoreError
 
         mock_service = AsyncMock(spec=AuthService)
-        mock_service.logout.side_effect = SessionStoreError("Redis deletion failed")
+        mock_service.logout.side_effect = SessionStoreError("Database deletion failed")
         test_client.app.dependency_overrides[get_auth_service] = lambda: mock_service
 
         try:

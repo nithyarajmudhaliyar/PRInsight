@@ -49,6 +49,8 @@ def auth_settings() -> Settings:
         GITHUB_OAUTH_REDIRECT_URI="http://localhost:8000/api/v1/auth/github/callback",
         FRONTEND_URL="http://localhost:5173",
         SESSION_TTL_SECONDS=3600,
+        DATABASE_URL="postgresql://user:pass@ep-sample-pooler.neon.tech/neondb?sslmode=require",
+        OAUTH_TOKEN_ENCRYPTION_KEY="dGVzdF9rZXlfZm9yX3VuaXRfdGVzdGluZ18xMjM0NQ==",
     )
 
 
@@ -121,9 +123,9 @@ class TestCreateLoginUrl:
     async def test_create_login_url_propagates_session_store_error(self, auth_service):
         from app.services.session_store import SessionStoreError
         auth_service._session_store.save_oauth_state = AsyncMock(
-            side_effect=SessionStoreError("Redis connection failure")
+            side_effect=SessionStoreError("Database connection failure")
         )
-        with pytest.raises(SessionStoreError, match="Redis connection failure"):
+        with pytest.raises(SessionStoreError, match="Database connection failure"):
             await auth_service.create_login_url()
 
 
@@ -192,9 +194,9 @@ class TestValidateState:
     async def test_validate_state_propagates_session_store_error(self, auth_service):
         from app.services.session_store import SessionStoreError
         auth_service._session_store.consume_oauth_state = AsyncMock(
-            side_effect=SessionStoreError("Redis timeout during state validation")
+            side_effect=SessionStoreError("Database timeout during state validation")
         )
-        with pytest.raises(SessionStoreError, match="Redis timeout during state validation"):
+        with pytest.raises(SessionStoreError, match="Database timeout during state validation"):
             await auth_service.validate_state("some_state")
 
 
@@ -230,7 +232,7 @@ class TestHandleCallback:
     async def test_callback_fails_when_session_storage_unconfigured(self, auth_service):
         from app.services.session_store import SessionStore, SessionStoreConfigurationError
         _, state = await auth_service.create_login_url()
-        auth_service._session_store = SessionStore(redis_url="", redis_token="", encryption_key="")
+        auth_service._session_store = SessionStore(database_url="", encryption_key="")
         with pytest.raises(SessionStoreConfigurationError):
             await auth_service.handle_callback(code="valid_code", state=state)
 
@@ -238,7 +240,8 @@ class TestHandleCallback:
         from app.services.session_store import SessionStore, SessionStoreConfigurationError
         _, state = await auth_service.create_login_url()
         auth_service._session_store = SessionStore(
-            redis_url="https://redis.example.com", redis_token="tok", encryption_key="invalid-key"
+            database_url="postgresql://user:pass@ep-sample-pooler.neon.tech/neondb?sslmode=require",
+            encryption_key="invalid-key",
         )
         with pytest.raises(SessionStoreConfigurationError):
             await auth_service.handle_callback(code="valid_code", state=state)
@@ -247,9 +250,9 @@ class TestHandleCallback:
         from app.services.session_store import SessionStoreError
         _, state = await auth_service.create_login_url()
         auth_service._session_store.save_session = AsyncMock(
-            side_effect=SessionStoreError("Redis write failure")
+            side_effect=SessionStoreError("Database write failure")
         )
-        with pytest.raises(SessionStoreError, match="Redis write failure"):
+        with pytest.raises(SessionStoreError, match="Database write failure"):
             await auth_service.handle_callback(code="valid_code", state=state)
 
 
@@ -274,16 +277,16 @@ class TestGetCurrentUser:
     async def test_raises_session_store_error_when_storage_fails(self, auth_service):
         from app.services.session_store import SessionStoreError
         auth_service._session_store.get_session = AsyncMock(
-            side_effect=SessionStoreError("Redis connection lost")
+            side_effect=SessionStoreError("Database connection lost")
         )
         # Must raise SessionStoreError, NOT AuthenticationError!
-        with pytest.raises(SessionStoreError, match="Redis connection lost"):
+        with pytest.raises(SessionStoreError, match="Database connection lost"):
             await auth_service.get_current_user("some_session_id")
 
     async def test_get_session_propagates_storage_error(self, auth_service):
         from app.services.session_store import SessionStoreError
         auth_service._session_store.get_session = AsyncMock(
-            side_effect=SessionStoreError("Redis timeout")
+            side_effect=SessionStoreError("Database timeout")
         )
         with pytest.raises(SessionStoreError):
             await auth_service.get_session("some_session_id")
@@ -318,8 +321,8 @@ class TestLogout:
     async def test_logout_raises_when_session_store_delete_fails(self, auth_service):
         from app.services.session_store import SessionStoreError
         auth_service._session_store.delete_session = AsyncMock(
-            side_effect=SessionStoreError("Redis connection dropped")
+            side_effect=SessionStoreError("Database connection dropped")
         )
-        with pytest.raises(SessionStoreError, match="Redis connection dropped"):
+        with pytest.raises(SessionStoreError, match="Database connection dropped"):
             await auth_service.logout("some_session_id")
 

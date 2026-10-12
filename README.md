@@ -276,6 +276,8 @@ https://pr-insight-phi.vercel.app
 | `GITHUB_OAUTH_CLIENT_ID` | From GitHub OAuth App |
 | `GITHUB_OAUTH_CLIENT_SECRET` | From GitHub OAuth App |
 | `SESSION_SECRET_KEY` | Random secret for session signing |
+| `DATABASE_URL` | Neon PostgreSQL pooled connection string (`-pooler`) |
+| `OAUTH_TOKEN_ENCRYPTION_KEY` | 32-byte base64 Fernet key for encrypting OAuth tokens |
 | `COOKIE_SECURE` | `true` |
 | `COOKIE_SAMESITE` | `lax` |
 | `CORS_ORIGINS` | `["https://pr-insight-phi.vercel.app"]` |
@@ -288,11 +290,11 @@ https://pr-insight-phi.vercel.app
 |---|---|
 | `VITE_API_BASE_URL` | `""` (empty string — uses same-domain relative paths) |
 
-> ⚠️ **Never commit secrets (`GITHUB_TOKEN`, `GITHUB_OAUTH_CLIENT_SECRET`, `SESSION_SECRET_KEY`) to Git.** All secrets are configured exclusively through the Vercel Dashboard.
+> ⚠️ **Never commit secrets (`GITHUB_TOKEN`, `GITHUB_OAUTH_CLIENT_SECRET`, `SESSION_SECRET_KEY`, `DATABASE_URL`, `OAUTH_TOKEN_ENCRYPTION_KEY`) to Git.** All secrets are configured exclusively through the Vercel Dashboard.
 
 ### Serverless Considerations
 
-The backend uses in-memory cache, rate limiting, and session storage. These are acceptable for this portfolio/demo deployment but may reset across serverless instance lifecycles. Production-scale usage would require external stores (e.g., Redis).
+The backend uses in-memory cache and rate limiting, with persistent server-side session and OAuth state storage backed by Neon PostgreSQL.
 ---
 
 # 📋 Example
