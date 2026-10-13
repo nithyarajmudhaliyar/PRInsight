@@ -14,6 +14,7 @@ but has no knowledge of HTTP, frameworks, or response codes.
 """
 
 import asyncio
+import hashlib
 import logging
 import time
 from datetime import datetime, timezone
@@ -39,6 +40,24 @@ from app.utils.url_parser import normalize_pr_url, parse_pr_url
 logger = logging.getLogger(__name__)
 
 
+def build_analysis_cache_key(pr_url: str, access_token: str | None = None) -> str:
+    """
+    Generate an authorization-aware cache key.
+
+    - Normalizes the PR URL.
+    - Uses a distinct 'anon' namespace for anonymous requests.
+    - Uses a stable SHA-256 hash of the access token for authenticated requests
+      under the 'auth' namespace.
+    - Never includes raw tokens in the cache key.
+    """
+    normalized_url = normalize_pr_url(pr_url)
+    token = access_token.strip() if access_token else None
+    if token:
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        return f"auth:{token_hash}:{normalized_url}"
+    return f"anon:{normalized_url}"
+
+
 class AnalysisService:
     """
     Orchestrates Pull Request conflict analysis.
@@ -46,6 +65,8 @@ class AnalysisService:
     All dependencies are injected via the constructor, making the
     service fully testable with mocked clients and cache.
     """
+
+    build_cache_key = staticmethod(build_analysis_cache_key)
 
     def __init__(
         self,
@@ -75,7 +96,7 @@ class AnalysisService:
         start_time = time.monotonic()
 
         # ── Step 0: Check cache ──────────────────────────────────────────
-        cache_key = normalize_pr_url(pr_url)
+        cache_key = self.build_cache_key(pr_url, access_token)
         cached_result = await self._cache.get(cache_key)
 
         if cached_result is not None:
